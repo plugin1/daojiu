@@ -40,7 +40,6 @@ footer{margin-top:14px;font-size:12px;color:#777;}
 <button id="importBtn">导入数据（粘贴）</button>
 <button id="clearAll">清空全部数据</button>
 <button id="unlockVotes" style="font-size:16px;padding:2px 6px;border:none;background:none;cursor:pointer;">🍎</button>
-<button id="emptyVoteBtn">🕳️ 投空票（占位）</button>
 </div>
 
 <div class="question-box">
@@ -205,8 +204,6 @@ function submitVote(optionIdx){
   saveVotedQuestions();
 }
 
-
-
 // Buttons
 document.getElementById('nextBtn').addEventListener('click',()=>{ if(qIndex<QUESTIONS.length-1) qIndex++; showQuestion(qIndex); });
 document.getElementById('prevBtn').addEventListener('click',()=>{ if(qIndex>0) qIndex--; showQuestion(qIndex); });
@@ -267,9 +264,9 @@ document.getElementById('importBtn').addEventListener('click', () => {
   }
 });
   
+// 🍎 按钮功能（投空票 + 测试用）
+const appleBtn = document.getElementById('unlockVotes');
 
-// 🍎 测试用按键：解锁当前题投票；投空票
-const appleBtn = document.createElement('div');
 appleBtn.addEventListener('click', () => {
   const menu = document.createElement('div');
   menu.style.position = 'fixed';
@@ -281,32 +278,52 @@ appleBtn.addEventListener('click', () => {
   menu.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
   menu.style.zIndex = '10001';
   menu.style.padding = '4px 0';
-  
-  // 点击投空票
-  menu.children[0].addEventListener('click', () => {
+  menu.style.display = 'flex';
+  menu.style.flexDirection = 'column';
+
+  // 投空票按钮
+  const emptyVoteBtn = document.createElement('button');
+  emptyVoteBtn.textContent = '投空票（占位）';
+  emptyVoteBtn.style.padding = '4px 8px';
+  emptyVoteBtn.style.border = 'none';
+  emptyVoteBtn.style.background = 'none';
+  emptyVoteBtn.style.cursor = 'pointer';
+  emptyVoteBtn.addEventListener('click', () => {
     state.votes[qIndex] = null; // 空票占位
     saveState();
     checkVoteEnd();
-    alert('已投空票（占位）');
+    alert('已投占位票');
     menu.remove();
   });
+  menu.appendChild(emptyVoteBtn);
 
-  // 点击测试版功能
-  menu.children[1].addEventListener('click', () => {
+  // 测试用解锁按钮
+  const unlockBtn = document.createElement('button');
+  unlockBtn.textContent = '解锁本题投票（测试）';
+  unlockBtn.style.padding = '4px 8px';
+  unlockBtn.style.border = 'none';
+  unlockBtn.style.background = 'none';
+  unlockBtn.style.cursor = 'pointer';
+  unlockBtn.addEventListener('click', () => {
     delete votedQuestions[qIndex];
     saveVotedQuestions();
     showQuestion(qIndex);
     console.log('本题投票已解锁（测试用）');
     menu.remove();
   });
+  menu.appendChild(unlockBtn);
 
   document.body.appendChild(menu);
 
   // 点击其他地方关闭菜单
-  const handler = e => { if(!menu.contains(e.target) && e.target !== appleBtn){ menu.remove(); document.removeEventListener('click', handler); } };
+  const handler = e => {
+    if(!menu.contains(e.target) && e.target !== appleBtn){
+      menu.remove();
+      document.removeEventListener('click', handler);
+    }
+  };
   document.addEventListener('click', handler);
 });
-
 
 // 编辑题目/选项
 document.getElementById('editBtn').addEventListener('click',()=>{ editPanel.style.display=editPanel.style.display==='none'?'block':'none'; editQuestions.value=QUESTIONS.join('\n'); editOptions.value=OPTIONS.join('\n'); });

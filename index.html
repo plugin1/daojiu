@@ -40,6 +40,7 @@ footer{margin-top:14px;font-size:12px;color:#777;}
 <button id="importBtn">导入数据（粘贴）</button>
 <button id="clearAll">清空全部数据</button>
 <button id="unlockVotes" style="font-size:16px;padding:2px 6px;border:none;background:none;cursor:pointer;">🍎</button>
+<button id="emptyVoteBtn">🕳️ 投空票（占位）</button>
 </div>
 
 <div class="question-box">
@@ -166,7 +167,10 @@ function showQuestion(idx){
         btn.style.pointerEvents = 'none';
         btn.querySelector('.small').textContent = '已投票';
       } else {
-        btn.addEventListener('click', () => { submitVote(i); });
+        btn.addEventListener('click', () => { 
+  submitVote(i); 
+  checkVoteEnd(); // ✅ 加在这里：投完票后检查是否该结算
+});
       }
 
       optionsDiv.appendChild(btn);
@@ -262,6 +266,19 @@ document.getElementById('importBtn').addEventListener('click', () => {
     alert('导入失败，请检查 JSON 格式');
   }
 });
+  
+// 空票按钮事件
+document.getElementById('emptyVoteBtn').addEventListener('click', ()=>{
+  const emptyIndex = state.votes.findIndex(v=>v===null);
+  if(emptyIndex !== -1){
+    state.votes[emptyIndex] = null; // 空票占位
+    saveState();
+    checkVoteEnd();
+    alert('已投空票（占位）');
+  } else {
+    alert('你已投满5票');
+  }
+});
 
 // 🍎 测试用按键：解锁当前题投票
 const appleBtn = document.createElement('div');
@@ -295,6 +312,85 @@ document.getElementById('saveEditBtn').addEventListener('click',()=>{
   saveState();
   showQuestion(0);
 });
+
+  // ======== MVP 结算与动画 ========
+function checkVoteEnd(){
+  // 检查是否投够5票
+  const totalVotes = Object.values(state.votes || {}).filter(v => v !== null && v !== undefined).length;
+  if(totalVotes >= 5){
+    showMVP();
+  }
+}
+
+function showMVP(){
+  // 找到票数最高的选项
+  const counts = {};
+  Object.values(state.votes).forEach(v=>{
+    if(v!==null && v!==undefined){
+      counts[v] = (counts[v] || 0) + 1;
+    }
+  });
+  const maxName = Object.keys(counts).reduce((a,b)=> counts[a]>counts[b]?a:b);
+  
+  const mvpDiv = document.createElement('div');
+  mvpDiv.style.position = 'fixed';
+  mvpDiv.style.left = '0';
+  mvpDiv.style.top = '0';
+  mvpDiv.style.width = '100%';
+  mvpDiv.style.height = '100%';
+  mvpDiv.style.background = 'rgba(255,255,255,0.9)';
+  mvpDiv.style.display = 'flex';
+  mvpDiv.style.flexDirection = 'column';
+  mvpDiv.style.justifyContent = 'center';
+  mvpDiv.style.alignItems = 'center';
+  mvpDiv.style.zIndex = '9999';
+  mvpDiv.innerHTML = `
+    <h1 style="font-size:48px;color:#ff007f;text-shadow:0 0 12px #ff66b2;animation: glow 3s infinite alternate;">🏆 MVP：${maxName}！</h1>
+    <p style="font-size:20px;color:#333;">🎉 投票已结算 🎉</p>
+  `;
+  document.body.appendChild(mvpDiv);
+
+  startFireworks();
+  setTimeout(()=>mvpDiv.remove(),8000); // 8秒后自动消失
+}
+
+function startFireworks(){
+  const canvas = document.createElement('canvas');
+  canvas.style.position = 'fixed';
+  canvas.style.left = '0';
+  canvas.style.top = '0';
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  canvas.style.zIndex = '10000';
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+  const particles = [];
+
+  function addParticle(){
+    particles.push({
+      x: Math.random()*canvas.width,
+      y: Math.random()*canvas.height/2,
+      vx: (Math.random()-0.5)*3,
+      vy: Math.random()*-2-2,
+      life: 80
+    });
+  }
+  function update(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    particles.forEach(p=>{
+      p.x+=p.vx; p.y+=p.vy; p.vy+=0.05; p.life--;
+      ctx.fillStyle=`hsl(${Math.random()*360},100%,60%)`;
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,3,0,Math.PI*2);
+      ctx.fill();
+    });
+    for(let i=0;i<5;i++) addParticle();
+    for(let i=particles.length-1;i>=0;i--) if(particles[i].life<=0) particles.splice(i,1);
+    requestAnimationFrame(update);
+  }
+  update();
+  setTimeout(()=>canvas.remove(),8000);
+}
 
 // 初始化
 showQuestion(0);

@@ -22,7 +22,6 @@ textarea{width:100%;min-height:90px;}
 footer{margin-top:14px;font-size:12px;color:#777;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
@@ -45,7 +44,7 @@ footer{margin-top:14px;font-size:12px;color:#777;}
 <div class="question-box">
 <div class="small">第 <span id="qIndex">1</span> / 共 <span id="qCount">0</span> 题</div>
 <h2 id="questionTitle">载入中...</h2>
-<div class="small" id="optionsHint">选项固定：A：Fumika B：小美 C：盼盼 D：Selina E：Zoe</div>
+<div class="small" id="optionsHint"></div>
 </div>
 
 <div class="options" id="options"></div>
@@ -69,17 +68,16 @@ footer{margin-top:14px;font-size:12px;color:#777;}
 </div>
 
 <script>
-// ========== 可编辑题目与选项 ==========
+// ========= 题目与选项 ==========
 let QUESTIONS = [
 '谁最爱在公共场合做莫名其妙的事','谁最可能在出事的时候冲在前面','谁最可能先有小孩','谁最可能酒后联系前任','谁最容易被PUA','谁最有可能先结婚','谁最喜欢年下','谁最爱看美女/帅哥','谁最爱忘事','谁最可能一夜情','谁最容易心动','谁最像M','谁最容易遇上渣女/男','谁最有上进心','谁情绪最稳定','谁最有可能吃回头草','谁脾气最大','谁最可能为爱放弃事业','谁最八卦','谁最恋爱脑','谁分手后会最快走出来','谁最有桃花'
 ];
 let OPTIONS = ['Fumika','小美','盼盼','Selina','Zoe'];
 
-// ========== 状态管理 ==========
+// ========= 状态管理 ==========
 let state = loadState();
 let qIndex = 0;
 const STORAGE_KEY = 'daojiu_votes_v2';
-  // 本地投票限制
 let votedQuestions = JSON.parse(localStorage.getItem('votedQuestions')||'{}');
 function saveVotedQuestions(){ localStorage.setItem('votedQuestions', JSON.stringify(votedQuestions)); }
 
@@ -97,25 +95,18 @@ const editOptions = document.getElementById('editOptions');
 qCountEl.textContent = QUESTIONS.length;
 optionsHint.textContent = '选项：'+OPTIONS.join(' ');
 
-// 初始化 Firebase
+// Firebase 初始化
 const firebaseConfig = {
-apiKey: "AIzaSyB5VcW8kGCWQrhOUV5-sq9NtTKzXHJAl78", 
-authDomain: "daojiu-f970e.firebaseapp.com", 
+apiKey: "AIzaSyB5VcW8kGCWQrhOUV5-sq9NtTKzXHJAl78",
+authDomain: "daojiu-f970e.firebaseapp.com",
 databaseURL: "https://daojiu-f970e-default-rtdb.firebaseio.com",
-projectId: "daojiu-f970e", 
-storageBucket: "daojiu-f970e.firebasestorage.app", 
-messagingSenderId: "438370344777", 
-appId: "1:438370344777:web:a2c0f25a6052b339d0c498" 
+projectId: "daojiu-f970e",
+storageBucket: "daojiu-f970e.firebasestorage.app",
+messagingSenderId: "438370344777",
+appId: "1:438370344777:web:a2c0f25a6052b339d0c498"
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-
-// Initialize Firebase const app = initializeApp(firebaseConfig);
-/*
-const firebaseConfig = { ... };
-const app = firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-*/
 
 // Chart.js
 const ctx = document.getElementById('chart').getContext('2d');
@@ -126,175 +117,225 @@ function renderChart(counts){
   chart = new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'票数',data:counts}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,precision:0}}}});
 }
 
-// 状态
+// 状态函数
 function makeEmptyState(){ return {votes:QUESTIONS.map(()=>OPTIONS.map(()=>0)), currentQuestion:0}; }
-function loadState(){ try{const raw = localStorage.getItem(STORAGE_KEY);return raw?JSON.parse(raw):makeEmptyState();}catch(e){return makeEmptyState();} }
+function loadState(){ try{const raw=localStorage.getItem(STORAGE_KEY);return raw?JSON.parse(raw):makeEmptyState();}catch(e){return makeEmptyState();} }
 function saveState(){ localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); }
 
-// 显示题目（支持 Firebase Realtime Database 实时更新）
+// 显示题目
 function showQuestion(idx){
   qIndex = idx;
-  qIndexEl.textContent = idx + 1;
-  questionTitle.textContent = QUESTIONS[idx] || '题目缺失';
-  optionsDiv.innerHTML = '';
+  qIndexEl.textContent = idx+1;
+  questionTitle.textContent = QUESTIONS[idx]||'题目缺失';
+  optionsDiv.innerHTML='';
 
-  // 获取当前题目的数据库引用
   const voteRef = db.ref(`votes/${idx}`);
-
-  // 先解绑旧监听，防止重复绑定
   voteRef.off();
-
-  // 监听数据库变化
-  voteRef.on('value', snapshot => {
-    const counts = snapshot.val() || OPTIONS.map(() => 0);
-
-    // 更新本地状态，保证导出/导入一致
+  voteRef.on('value', snapshot=>{
+    const counts = snapshot.val() || OPTIONS.map(()=>0);
     state.votes[idx] = counts;
     saveState();
-
-    // 渲染选项按钮
-    optionsDiv.innerHTML = '';
-    counts.forEach((c, i) => {
+    optionsDiv.innerHTML='';
+    counts.forEach((c,i)=>{
       const btn = document.createElement('div');
-      btn.className = 'option';
-      btn.dataset.idx = i;
-      btn.innerHTML = `<div style="font-weight:600">${OPTIONS[i]}</div><div class="small">点击投票</div>`;
-
-  // 如果已投票本题，按钮不可点
+      btn.className='option';
+      btn.dataset.idx=i;
+      btn.innerHTML=`<div style="font-weight:600">${OPTIONS[i]}</div><div class="small">点击投票</div>`;
       if(votedQuestions[idx]){
-        btn.style.opacity = 0.6;
-        btn.style.pointerEvents = 'none';
-        btn.querySelector('.small').textContent = '已投票';
-      } else {
-        btn.addEventListener('click', () => { 
-  submitVote(i); 
-  checkVoteEnd(); // ✅ 加在这里：投完票后检查是否该结算
-});
+        btn.style.opacity=0.6;
+        btn.style.pointerEvents='none';
+        btn.querySelector('.small').textContent='已投票';
+      }else{
+        btn.addEventListener('click',()=>{ submitVote(i); checkVoteEnd(); });
       }
-
       optionsDiv.appendChild(btn);
     });
-
-    // 渲染图表和总票数
     renderChart(counts);
-    const total = counts.reduce((a, b) => a + b, 0);
+    const total = counts.reduce((a,b)=>a+b,0);
     summary.textContent = `总票数：${total}（${counts.map((c,i)=>OPTIONS[i]+':'+c).join(' ／ ')}）`;
   });
 }
 
 // 投票
 function submitVote(optionIdx){
-  if(votedQuestions[qIndex]){
-    alert('每题每人只能投一次');
-    return;
-  }
-
-  // 更新本地状态
-  state.votes[qIndex][optionIdx] += 1;
+  if(votedQuestions[qIndex]){ alert('每题每人只能投一次'); return; }
+  state.votes[qIndex][optionIdx]+=1;
   saveState();
-
-  // 更新数据库
   const votePath = `votes/${qIndex}/${optionIdx}`;
-  db.ref(votePath).transaction(current => {
-    return (current || 0) + 1;
-  });
-
-  // 标记已投票
-  votedQuestions[qIndex] = true;
+  db.ref(votePath).transaction(current=>(current||0)+1);
+  votedQuestions[qIndex]=true;
   saveVotedQuestions();
 }
 
-// Buttons
+// 下一题/上一题
 document.getElementById('nextBtn').addEventListener('click',()=>{ if(qIndex<QUESTIONS.length-1) qIndex++; showQuestion(qIndex); });
 document.getElementById('prevBtn').addEventListener('click',()=>{ if(qIndex>0) qIndex--; showQuestion(qIndex); });
+
+// 重置本题票数
 document.getElementById('resetQuestion').addEventListener('click',()=>{ 
   if(confirm('确定重置本题票数吗？')){ 
     state.votes[qIndex]=OPTIONS.map(()=>0); 
     saveState(); 
-    // Firebase 同步
     db.ref(`votes/${qIndex}`).set(OPTIONS.map(()=>0));
-    // 同步清除本地投票标记
     delete votedQuestions[qIndex]; 
     saveVotedQuestions();
     showQuestion(qIndex); 
   } 
 });
 
+// 清空全部数据
 document.getElementById('clearAll').addEventListener('click',()=>{ 
   if(confirm('确定清空全部数据？')){ 
     state=makeEmptyState(); 
     saveState(); 
-    // Firebase 同步
-    QUESTIONS.forEach((_, idx) => db.ref(`votes/${idx}`).set(OPTIONS.map(()=>0)));
-    // 清除本地投票标记
-    votedQuestions = {}; 
+    QUESTIONS.forEach((_,idx)=>db.ref(`votes/${idx}`).set(OPTIONS.map(()=>0)));
+    votedQuestions={}; 
     saveVotedQuestions();
     showQuestion(0); 
   } 
 });
 
-
 // 导出/导入
-document.getElementById('exportBtn').addEventListener('click', () => {
-  dataBox.value = JSON.stringify(state);
-  dataBox.select();
-  try {
-    document.execCommand('copy');
-    alert('已复制到剪贴板，可发给其他人同步');
-  } catch (e) {
-    alert('请手动复制右方文本');
-  }
+document.getElementById('exportBtn').addEventListener('click',()=>{
+  dataBox.value=JSON.stringify(state); dataBox.select();
+  try{document.execCommand('copy'); alert('已复制到剪贴板');}catch(e){alert('请手动复制');}
+});
+document.getElementById('importBtn').addEventListener('click',()=>{
+  const raw=dataBox.value.trim(); if(!raw){alert('请先粘贴 JSON 数据'); return;}
+  try{
+    const obj=JSON.parse(raw);
+    if(!obj.votes||!Array.isArray(obj.votes)||obj.votes.length!==QUESTIONS.length)throw'格式错误';
+    state=obj; saveState(); showQuestion(qIndex); alert('已导入数据');
+  }catch(e){alert('导入失败，请检查 JSON 格式');}
 });
 
-document.getElementById('importBtn').addEventListener('click', () => {
-  const raw = dataBox.value.trim();
-  if (!raw) { 
-    alert('请先粘贴 JSON 数据'); 
-    return; 
-  }
-  try {
-    const obj = JSON.parse(raw);
-    if (!obj.votes || !Array.isArray(obj.votes) || obj.votes.length !== QUESTIONS.length) throw '格式错误';
-    state = obj; 
-    saveState(); 
-    showQuestion(qIndex); 
-    alert('已导入数据'); 
-  } catch(e) {
-    alert('导入失败，请检查 JSON 格式');
-  }
-});
-  
-// 🍎 按钮功能（投空票 + 测试用）
-const appleBtn = document.getElementById('unlockVotes');
+// 🍎按钮（投空票+解锁测试）
+const appleBtn=document.getElementById('unlockVotes');
+appleBtn.addEventListener('click',()=>{
+  const menu=document.createElement('div');
+  menu.style.position='fixed';
+  menu.style.bottom='40px';
+  menu.style.right='8px';
+  menu.style.background='#fff';
+  menu.style.border='1px solid #ddd';
+  menu.style.borderRadius='8px';
+  menu.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)';
+  menu.style.zIndex='10001';
+  menu.style.padding='4px 0';
+  menu.style.display='flex';
+  menu.style.flexDirection='column';
 
-appleBtn.addEventListener('click', () => {
-  const menu = document.createElement('div');
-  menu.style.position = 'fixed';
-  menu.style.bottom = '40px';
-  menu.style.right = '8px';
-  menu.style.background = '#fff';
-  menu.style.border = '1px solid #ddd';
-  menu.style.borderRadius = '8px';
-  menu.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
-  menu.style.zIndex = '10001';
-  menu.style.padding = '4px 0';
-  menu.style.display = 'flex';
-  menu.style.flexDirection = 'column';
-
-  // 投空票按钮
-  const emptyVoteBtn = document.createElement('button');
-  emptyVoteBtn.textContent = '投空票（占位）';
-  emptyVoteBtn.style.padding = '4px 8px';
-  emptyVoteBtn.style.border = 'none';
-  emptyVoteBtn.style.background = 'none';
-  emptyVoteBtn.style.cursor = 'pointer';
-  emptyVoteBtn.addEventListener('click', () => {
-    state.votes[qIndex] = null; // 空票占位
+  // 投空票（占位）
+  const emptyVoteBtn=document.createElement('button');
+  emptyVoteBtn.textContent='投空票（占位）';
+  emptyVoteBtn.style.padding='4px 8px';
+  emptyVoteBtn.style.border='none';
+  emptyVoteBtn.style.background='none';
+  emptyVoteBtn.style.cursor='pointer';
+  emptyVoteBtn.addEventListener('click',()=>{
+    if(votedQuestions[qIndex]){ alert('本题已投票'); menu.remove(); return;}
+    state.votes[qIndex][0]+=1; // 默认占位票投给第一个选项
     saveState();
-    checkVoteEnd();
-    alert('已投占位票');
-    menu.remove();
+    const votePath=`votes/${qIndex}/0`;
+    db.ref(votePath).transaction(current=>(current||0)+1);
+    votedQuestions[qIndex]=true; saveVotedQuestions();
+    showQuestion(qIndex); alert('本题已投占位票'); menu.remove();
   });
+  menu.appendChild(emptyVoteBtn);
+
+  // 测试解锁
+  const unlockBtn=document.createElement('button');
+  unlockBtn.textContent='解锁本题投票（测试）';
+  unlockBtn.style.padding='4px 8px';
+  unlockBtn.style.border='none';
+  unlockBtn.style.background='none';
+  unlockBtn.style.cursor='pointer';
+  unlockBtn.addEventListener('click',()=>{
+    delete votedQuestions[qIndex]; saveVotedQuestions(); showQuestion(qIndex); menu.remove();
+  });
+  menu.appendChild(unlockBtn);
+
+  document.body.appendChild(menu);
+  const handler=e=>{ if(!menu.contains(e.target)&&e.target!==appleBtn){menu.remove();document.removeEventListener('click',handler);}};
+  document.addEventListener('click',handler);
+});
+
+// 编辑题目/选项
+document.getElementById('editBtn').addEventListener('click',()=>{ 
+  editPanel.style.display=editPanel.style.display==='none'?'block':'none'; 
+  editQuestions.value=QUESTIONS.join('\n'); 
+  editOptions.value=OPTIONS.join('\n'); 
+});
+document.getElementById('saveEditBtn').addEventListener('click',()=>{
+  const qText=editQuestions.value.split('\n').map(l=>l.trim()).filter(Boolean);
+  const oText=editOptions.value.split('\n').map(l=>l.trim()).filter(Boolean);
+  if(qText.length<1||oText.length<1){alert('题目和选项都不能为空'); return;}
+  QUESTIONS=qText; OPTIONS=oText;
+  state.votes=QUESTIONS.map((q,i)=>state.votes[i]||OPTIONS.map(()=>0));
+  qCountEl.textContent=QUESTIONS.length;
+  optionsHint.textContent='选项：'+OPTIONS.join(' ');
+  saveState();
+  showQuestion(0);
+});
+
+// MVP结算
+function checkVoteEnd(){
+  const totalVotes = state.votes.flat().filter(v=>v!==null && v!==undefined).reduce((a,b)=>a+b,0);
+  if(totalVotes>=5){ showMVP(); }
+}
+function showMVP(){
+  const counts={};
+  state.votes.forEach(vArr=>{
+    vArr.forEach((v,i)=>{ if(v!==null && v!==undefined) counts[OPTIONS[i]]=(counts[OPTIONS[i]]||0)+v; });
+  });
+  const maxName=Object.keys(counts).reduce((a,b)=> counts[a]>counts[b]?a:b);
+  const mvpDiv=document.createElement('div');
+  mvpDiv.style.position='fixed';
+  mvpDiv.style.left='0';
+  mvpDiv.style.top='0';
+  mvpDiv.style.width='100%';
+  mvpDiv.style.height='100%';
+  mvpDiv.style.background='rgba(255,255,255,0.9)';
+  mvpDiv.style.display='flex';
+  mvpDiv.style.flexDirection='column';
+  mvpDiv.style.justifyContent='center';
+  mvpDiv.style.alignItems='center';
+  mvpDiv.style.zIndex='9999';
+  const questionText = QUESTIONS[qIndex]||'题目缺失';
+  mvpDiv.innerHTML=`<h2 style="font-size:24px;color:#999;">🏆 本题结算：${questionText}</h2><h1 style="font-size:48px;color:#ff007f;text-shadow:0 0 12px #ff66b2;animation: glow 3s infinite alternate;">${maxName}</h1>`;
+  document.body.appendChild(mvpDiv);
+  startFireworks();
+  setTimeout(()=>mvpDiv.remove(),8000);
+}
+
+function startFireworks(){
+  const canvas=document.createElement('canvas');
+  canvas.style.position='fixed';
+  canvas.style.left='0';
+  canvas.style.top='0';
+  canvas.width=window.innerWidth;
+  canvas.height=window.innerHeight;
+  canvas.style.zIndex='10000';
+  document.body.appendChild(canvas);
+  const ctx=canvas.getContext('2d');
+  const particles=[];
+  function addParticle(){ particles.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height/2,vx:(Math.random()-0.5)*3,vy:Math.random()*-2-2,life:80}); }
+  function update(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=0.05;p.life--;ctx.fillStyle=`hsl(${Math.random()*360},100%,60%)`;ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();});
+    for(let i=0;i<5;i++) addParticle();
+    for(let i=particles.length-1;i>=0;i--) if(particles[i].life<=0) particles.splice(i,1);
+    requestAnimationFrame(update);
+  }
+  update();
+  setTimeout(()=>canvas.remove(),8000);
+}
+
+// 初始化
+showQuestion(0);
+</script>
+</body>
+</html>
   menu.appendChild(emptyVoteBtn);
 
   // 测试用解锁按钮

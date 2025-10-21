@@ -263,12 +263,22 @@ document.getElementById('importBtn').addEventListener('click', () => {
   }
 });
 
-// 🍎 测试按钮：解锁本地投票（仅测试用，不显眼）
-document.getElementById('unlockVotes').addEventListener('click', () => {
-  votedQuestions = {};
-  saveVotedQuestions();
-  alert('本地投票已解锁，可以再次投票（测试用）');
-  showQuestion(qIndex);
+// 🍎 测试用按键：解锁当前题投票
+const appleBtn = document.createElement('div');
+appleBtn.textContent = '🍎';
+appleBtn.style.position = 'fixed';
+appleBtn.style.bottom = '8px';
+appleBtn.style.right = '8px';
+appleBtn.style.fontSize = '20px';
+appleBtn.style.cursor = 'pointer';
+appleBtn.title = '测试用：解锁本题投票';
+document.body.appendChild(appleBtn);
+
+appleBtn.addEventListener('click', () => {
+    delete votedQuestions[qIndex]; // 删除本题投票标记
+    saveVotedQuestions();
+    showQuestion(qIndex); // 刷新界面，按钮可点
+    console.log('本题投票已解锁（测试用）');
 });
 
 // 编辑题目/选项

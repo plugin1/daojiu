@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>倒酒游戏 — 联机投票</title>
+<title>倒酒游戏</title>
 <style>
 body{font-family: "Segoe UI", "Microsoft YaHei", sans-serif;background:#fafafa;color:#111;padding:16px;}
 .container{max-width:900px;margin:auto;background:#fff;padding:18px;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.06);}
@@ -28,8 +28,8 @@ footer{margin-top:14px;font-size:12px;color:#777;}
 </head>
 <body>
 <div class="container">
-<h1>倒酒游戏 — 联机投票</h1>
-<p class="lead">每题投票后可显示结果，可多人联机（需配置 Firebase）。点击齿轮可编辑题目和选项。</p>
+<h1>倒酒游戏</h1>
+<p class="lead">每题投票后可显示结果，可多人联机。点击齿轮可编辑题目和选项。</p>
 
 <div class="controls">
 <button id="prevBtn">◀ 上一题</button>
@@ -64,7 +64,7 @@ footer{margin-top:14px;font-size:12px;color:#777;}
 <hr>
 <textarea id="dataBox" placeholder="导出/导入 JSON 数据"></textarea>
 
-<footer>倒酒游戏 HTML 版 • 支持简体中文和编辑题目/选项</footer>
+<footer>倒酒游戏</footer>
 </div>
 
 <script>
@@ -78,6 +78,9 @@ let OPTIONS = ['Fumika','小美','盼盼','Selina','Zoe'];
 let state = loadState();
 let qIndex = 0;
 const STORAGE_KEY = 'daojiu_votes_v2';
+  // 本地投票限制
+let votedQuestions = JSON.parse(localStorage.getItem('votedQuestions')||'{}');
+function saveVotedQuestions(){ localStorage.setItem('votedQuestions', JSON.stringify(votedQuestions)); }
 
 // DOM
 const qCountEl = document.getElementById('qCount');
@@ -151,13 +154,22 @@ function showQuestion(idx){
     // 渲染选项按钮
     optionsDiv.innerHTML = '';
     counts.forEach((c, i) => {
-      const btn = document.createElement('div');
-      btn.className = 'option';
-      btn.dataset.idx = i;
-      btn.innerHTML = `<div style="font-weight:600">${OPTIONS[i]}</div><div class="small">点击投票</div>`;
-      btn.addEventListener('click', () => { submitVote(i); });
-      optionsDiv.appendChild(btn);
-    });
+  const btn = document.createElement('div');
+  btn.className = 'option';
+  btn.dataset.idx = i;
+  btn.innerHTML = `<div style="font-weight:600">${OPTIONS[i]}</div><div class="small">点击投票</div>`;
+  
+  // 如果已投票本题，按钮不可点
+  if(votedQuestions[idx]){
+    btn.style.opacity = 0.6;
+    btn.style.pointerEvents = 'none';
+    btn.querySelector('.small').textContent = '已投票';
+  } else {
+    btn.addEventListener('click', () => { submitVote(i); });
+  }
+
+  optionsDiv.appendChild(btn);
+});
 
     // 渲染图表和总票数
     renderChart(counts);
@@ -168,6 +180,11 @@ function showQuestion(idx){
 
 // 投票
 function submitVote(optionIdx){
+  if(votedQuestions[qIndex]){
+    alert('你已经投过这题了，每题只能投一次');
+    return;
+  }
+
   // 更新本地状态
   state.votes[qIndex][optionIdx] += 1;
   saveState();
@@ -178,15 +195,42 @@ function submitVote(optionIdx){
     return (current || 0) + 1;
   });
 
-  // 不再直接调用 showQuestion(qIndex)，让 Firebase 监听器自动刷新 UI
+  // 标记已投票
+  votedQuestions[qIndex] = true;
+  saveVotedQuestions();
 }
+
 
 
 // Buttons
 document.getElementById('nextBtn').addEventListener('click',()=>{ if(qIndex<QUESTIONS.length-1) qIndex++; showQuestion(qIndex); });
 document.getElementById('prevBtn').addEventListener('click',()=>{ if(qIndex>0) qIndex--; showQuestion(qIndex); });
-document.getElementById('resetQuestion').addEventListener('click',()=>{ if(confirm('确定重置本题票数吗？')){ state.votes[qIndex]=OPTIONS.map(()=>0); saveState(); showQuestion(qIndex); } });
-document.getElementById('clearAll').addEventListener('click',()=>{ if(confirm('确定清空全部数据？')){ state=makeEmptyState(); saveState(); showQuestion(0); } });
+document.getElementById('resetQuestion').addEventListener('click',()=>{ 
+  if(confirm('确定重置本题票数吗？')){ 
+    state.votes[qIndex]=OPTIONS.map(()=>0); 
+    saveState(); 
+    // Firebase 同步
+    db.ref(`votes/${qIndex}`).set(OPTIONS.map(()=>0));
+    // 同步清除本地投票标记
+    delete votedQuestions[qIndex]; 
+    saveVotedQuestions();
+    showQuestion(qIndex); 
+  } 
+});
+
+document.getElementById('clearAll').addEventListener('click',()=>{ 
+  if(confirm('确定清空全部数据？')){ 
+    state=makeEmptyState(); 
+    saveState(); 
+    // Firebase 同步
+    QUESTIONS.forEach((_, idx) => db.ref(`votes/${idx}`).set(OPTIONS.map(()=>0)));
+    // 清除本地投票标记
+    votedQuestions = {}; 
+    saveVotedQuestions();
+    showQuestion(0); 
+  } 
+});
+
 
 // 导出/导入
 document.getElementById('exportBtn').addEventListener('click',()=>{

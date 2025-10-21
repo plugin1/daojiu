@@ -267,36 +267,51 @@ document.getElementById('importBtn').addEventListener('click', () => {
   }
 });
   
-// 空票按钮事件
-document.getElementById('emptyVoteBtn').addEventListener('click', ()=>{
-  const emptyIndex = state.votes.findIndex(v=>v===null);
-  if(emptyIndex !== -1){
-    state.votes[emptyIndex] = null; // 空票占位
+
+// 🍎 测试用按键：解锁当前题投票；投空票
+const appleBtn = document.createElement('div');
+appleBtn.addEventListener('click', () => {
+  const menu = document.createElement('div');
+  menu.style.position = 'fixed';
+  menu.style.bottom = '40px';
+  menu.style.right = '8px';
+  menu.style.background = '#fff';
+  menu.style.border = '1px solid #ddd';
+  menu.style.borderRadius = '8px';
+  menu.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+  menu.style.zIndex = '10001';
+  menu.style.padding = '4px 0';
+  
+  menu.innerHTML = `
+    <div style="padding:6px 12px;cursor:pointer;">🕳️ 投空票</div>
+    <div style="padding:6px 12px;cursor:pointer;">测试版功能</div>
+  `;
+
+  // 点击投空票
+  menu.children[0].addEventListener('click', () => {
+    state.votes[qIndex] = null; // 空票占位
     saveState();
     checkVoteEnd();
     alert('已投空票（占位）');
-  } else {
-    alert('你已投满5票');
-  }
-});
+    menu.remove();
+  });
 
-// 🍎 测试用按键：解锁当前题投票
-const appleBtn = document.createElement('div');
-appleBtn.textContent = '🍎';
-appleBtn.style.position = 'fixed';
-appleBtn.style.bottom = '8px';
-appleBtn.style.right = '8px';
-appleBtn.style.fontSize = '20px';
-appleBtn.style.cursor = 'pointer';
-appleBtn.title = '测试用：解锁本题投票';
-document.body.appendChild(appleBtn);
-
-appleBtn.addEventListener('click', () => {
-    delete votedQuestions[qIndex]; // 删除本题投票标记
+  // 点击测试版功能
+  menu.children[1].addEventListener('click', () => {
+    delete votedQuestions[qIndex];
     saveVotedQuestions();
-    showQuestion(qIndex); // 刷新界面，按钮可点
+    showQuestion(qIndex);
     console.log('本题投票已解锁（测试用）');
+    menu.remove();
+  });
+
+  document.body.appendChild(menu);
+
+  // 点击其他地方关闭菜单
+  const handler = e => { if(!menu.contains(e.target) && e.target !== appleBtn){ menu.remove(); document.removeEventListener('click', handler); } };
+  document.addEventListener('click', handler);
 });
+
 
 // 编辑题目/选项
 document.getElementById('editBtn').addEventListener('click',()=>{ editPanel.style.display=editPanel.style.display==='none'?'block':'none'; editQuestions.value=QUESTIONS.join('\n'); editOptions.value=OPTIONS.join('\n'); });
@@ -344,10 +359,13 @@ function showMVP(){
   mvpDiv.style.justifyContent = 'center';
   mvpDiv.style.alignItems = 'center';
   mvpDiv.style.zIndex = '9999';
-  mvpDiv.innerHTML = `
-    <h1 style="font-size:48px;color:#ff007f;text-shadow:0 0 12px #ff66b2;animation: glow 3s infinite alternate;">🏆 MVP：${maxName}！</h1>
-    <p style="font-size:20px;color:#333;">🎉 投票已结算 🎉</p>
-  `;
+ // 找到本题题干
+const questionText = QUESTIONS[qIndex] || '题目缺失';
+mvpDiv.innerHTML = `
+  <h2 style="font-size:24px;color:#999;">🏆 本题结算：${questionText}</h2>
+  <h1 style="font-size:48px;color:#ff007f;text-shadow:0 0 12px #ff66b2;animation: glow 3s infinite alternate;">${maxName}</h1>
+`;
+
   document.body.appendChild(mvpDiv);
 
   startFireworks();

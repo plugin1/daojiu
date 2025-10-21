@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>倒酒游戏</title>
+<style>
+body{font-family: "Segoe UI", "Microsoft YaHei", sans-serif;background:#fafafa;color:#111;padding:16px;}
+.container{max-width:900px;margin:auto;background:#fff;padding:18px;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.06);}
+h1{font-size:20px;margin-bottom:8px;}
+p.lead{margin:4px 0 18px;color:#555;}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+button{padding:8px 12px;border-radius:8px;border:1px solid #ddd;background:#fff;cursor:pointer;}
+button.primary{background:#0b76ff;color:#fff;border-color:#0b76ff;}
+.question-box{margin-bottom:12px;}
+.options{display:flex;gap:8px;flex-wrap:wrap;}
+.option{flex:1;min-width:140px;border:1px solid #e6e6e6;padding:10px;border-radius:8px;text-align:center;cursor:pointer;background:#fcfcfc;}
+.option.chosen{outline:3px solid rgba(11,118,255,.12);}
+.small{font-size:13px;color:#666;}
+.stats{margin-top:12px;}
+textarea{width:100%;min-height:90px;}
+footer{margin-top:14px;font-size:12px;color:#777;}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+</head>
+<body>
+<div class="container">
+<h1>倒酒游戏</h1>
+<p class="lead">每题投票后可显示结果，可多人联机（需配置 Firebase）。点击齿轮可编辑题目和选项。</p>
+
+<div class="controls">
+<button id="prevBtn">◀ 上一题</button>
+<button id="nextBtn" class="primary">下一题 ▶</button>
+<button id="resetQuestion">重置本题票数</button>
+<button id="editBtn">⚙ 编辑题目/选项</button>
+<button id="exportBtn">导出数据（复制）</button>
+<button id="importBtn">导入数据（粘贴）</button>
+<button id="clearAll">清空全部数据</button>
+</div>
+
+<div class="question-box">
+<div class="small">第 <span id="qIndex">1</span> / 共 <span id="qCount">0</span> 题</div>
+<h2 id="questionTitle">载入中...</h2>
+<div class="small" id="optionsHint">选项固定：A：Fumika B：小美 C：盼盼 D：Selina E：Zoe</div>
+</div>
+
+<div class="options" id="options"></div>
+
+<div class="stats">
+<canvas id="chart" height="120"></canvas>
+<div class="small" id="summary">投票尚未开始</div>
+</div>
+
+<div id="editPanel" style="display:none;margin-top:12px;">
+<h3>编辑题目与选项</h3>
+<textarea id="editQuestions" placeholder="每行一个问题"></textarea>
+<textarea id="editOptions" placeholder="每行一个选项，如：Fumika"></textarea>
+<button id="saveEditBtn">保存修改</button>
+</div>
+
+<hr>
+<textarea id="dataBox" placeholder="导出/导入 JSON 数据"></textarea>
+
+<footer>倒酒游戏 HTML 版 • 支持简体中文和编辑题目/选项</footer>
+</div>
+
+<script>
+// ========== 可编辑题目与选项 ==========
+let QUESTIONS = [
+'谁前任最多','谁最爱在公共场合做莫名其妙的事','出事的时候谁最可能冲在前面','谁最可能先有小孩','谁最可能在酒后找前任联系','谁最容易被PUA','谁有可能最先结婚','谁最喜欢弟弟','谁最爱看帅哥','谁记性最差','谁最可能一夜情','谁最容易心动','谁最像M','谁最容易遇上渣男','谁的朋友最多','谁最有上进心','谁情绪最稳定','谁最有可能吃回头草','谁谈恋爱脾气最大','谁最有道女潜质','谁最可能为爱放弃事业','谁最八卦','谁恋爱脑最严重','谁分手后会最快找新欢','谁最受异性欢迎'
+];
+let OPTIONS = ['Fumika','小美','盼盼','Selina','Zoe'];
+
+// ========== 状态管理 ==========
+let state = loadState();
+let qIndex = 0;
+const STORAGE_KEY = 'daojiu_votes_v2';
+
+// DOM
+const qCountEl = document.getElementById('qCount');
+const qIndexEl = document.getElementById('qIndex');
+const questionTitle = document.getElementById('questionTitle');
+const optionsDiv = document.getElementById('options');
+const summary = document.getElementById('summary');
+const dataBox = document.getElementById('dataBox');
+const optionsHint = document.getElementById('optionsHint');
+const editPanel = document.getElementById('editPanel');
+const editQuestions = document.getElementById('editQuestions');
+const editOptions = document.getElementById('editOptions');
+qCountEl.textContent = QUESTIONS.length;
+optionsHint.textContent = '选项：'+OPTIONS.join(' ');
+
+// 初始化 Firebase
+const firebaseConfig = {
+apiKey: "AIzaSyB5VcW8kGCWQrhOUV5-sq9NtTKzXHJAl78", 
+authDomain: "daojiu-f970e.firebaseapp.com", 
+databaseURL: "https://daojiu-f970e-default-rtdb.firebaseio.com",
+projectId: "daojiu-f970e", 
+storageBucket: "daojiu-f970e.firebasestorage.app", 
+messagingSenderId: "438370344777", 
+appId: "1:438370344777:web:a2c0f25a6052b339d0c498" 
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// Initialize Firebase const app = initializeApp(firebaseConfig);
+/*
+const firebaseConfig = { ... };
+const app = firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+*/
+
+// Chart.js
+const ctx = document.getElementById('chart').getContext('2d');
+let chart;
+function renderChart(counts){
+  const labels = OPTIONS.slice();
+  if(chart) chart.destroy();
+  chart = new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'票数',data:counts}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,precision:0}}}});
+}
+
+// 状态
+function makeEmptyState(){ return {votes:QUESTIONS.map(()=>OPTIONS.map(()=>0)), currentQuestion:0}; }
+function loadState(){ try{const raw = localStorage.getItem(STORAGE_KEY);return raw?JSON.parse(raw):makeEmptyState();}catch(e){return makeEmptyState();} }
+function saveState(){ localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); }
+
+// 显示题目（支持 Firebase Realtime Database 实时更新）
+function showQuestion(idx){
+  qIndex = idx;
+  qIndexEl.textContent = idx + 1;
+  questionTitle.textContent = QUESTIONS[idx] || '题目缺失';
+  optionsDiv.innerHTML = '';
+
+  // 获取当前题目的数据库引用
+  const voteRef = db.ref(`votes/${idx}`);
+
+  // 先解绑旧监听，防止重复绑定
+  voteRef.off();
+
+  // 监听数据库变化
+  voteRef.on('value', snapshot => {
+    const counts = snapshot.val() || OPTIONS.map(() => 0);
+
+    // 更新本地状态，保证导出/导入一致
+    state.votes[idx] = counts;
+    saveState();
+
+    // 渲染选项按钮
+    optionsDiv.innerHTML = '';
+    counts.forEach((c, i) => {
+      const btn = document.createElement('div');
+      btn.className = 'option';
+      btn.dataset.idx = i;
+      btn.innerHTML = `<div style="font-weight:600">${OPTIONS[i]}</div><div class="small">点击投票</div>`;
+      btn.addEventListener('click', () => { submitVote(i); });
+      optionsDiv.appendChild(btn);
+    });
+
+    // 渲染图表和总票数
+    renderChart(counts);
+    const total = counts.reduce((a, b) => a + b, 0);
+    summary.textContent = `总票数：${total}（${counts.map((c,i)=>OPTIONS[i]+':'+c).join(' ／ ')}）`;
+  });
+}
+
+// 投票
+function submitVote(optionIdx){
+  // 更新本地状态
+  state.votes[qIndex][optionIdx] += 1;
+  saveState();
+
+  // 更新数据库
+  const votePath = `votes/${qIndex}/${optionIdx}`;
+  db.ref(votePath).transaction(current => {
+    return (current || 0) + 1;
+  });
+
+  // 不再直接调用 showQuestion(qIndex)，让 Firebase 监听器自动刷新 UI
+}
+
+
+// Buttons
+document.getElementById('nextBtn').addEventListener('click',()=>{ if(qIndex<QUESTIONS.length-1) qIndex++; showQuestion(qIndex); });
+document.getElementById('prevBtn').addEventListener('click',()=>{ if(qIndex>0) qIndex--; showQuestion(qIndex); });
+document.getElementById('resetQuestion').addEventListener('click',()=>{ if(confirm('确定重置本题票数吗？')){ state.votes[qIndex]=OPTIONS.map(()=>0); saveState(); showQuestion(qIndex); } });
+document.getElementById('clearAll').addEventListener('click',()=>{ if(confirm('确定清空全部数据？')){ state=makeEmptyState(); saveState(); showQuestion(0); } });
+
+// 导出/导入
+document.getElementById('exportBtn').addEventListener('click',()=>{
+  dataBox.value = JSON.stringify(state);
+  dataBox.select();
+  try{ document.execCommand('copy'); alert('已复制到剪贴板，可发给其他人同步'); }catch(e){ alert('请手动复制右方文本'); }
+});
+document.getElementById('importBtn').addEventListener('click',()=>{
+  const raw = dataBox.value.trim();
+  if(!raw){ alert('请先粘贴 JSON 数据'); return; }
+  try{
+    const obj = JSON.parse(raw);
+    if(!obj.votes||!Array.isArray(obj.votes)||obj.votes.length!==QUESTIONS.length) throw '格式错误';
+    state=obj; saveState(); showQuestion(qIndex); alert('已导入数据'); 
+  }catch(e){ alert('导入失败，请检查 JSON 格式'); }
+});
+
+// 编辑题目/选项
+document.getElementById('editBtn').addEventListener('click',()=>{ editPanel.style.display=editPanel.style.display==='none'?'block':'none'; editQuestions.value=QUESTIONS.join('\n'); editOptions.value=OPTIONS.join('\n'); });
+document.getElementById('saveEditBtn').addEventListener('click',()=>{
+  const qText = editQuestions.value.split('\n').map(l=>l.trim()).filter(Boolean);
+  const oText = editOptions.value.split('\n').map(l=>l.trim()).filter(Boolean);
+  if(qText.length<1||oText.length<1){ alert('题目和选项都不能为空'); return; }
+  QUESTIONS=qText; OPTIONS=oText;
+  // 调整 votes
+  state.votes=QUESTIONS.map((q,i)=>state.votes[i]||OPTIONS.map(()=>0));
+  qCountEl.textContent=QUESTIONS.length;
+  optionsHint.textContent='选项：'+OPTIONS.join(' ');
+  saveState();
+  showQuestion(0);
+});
+
+// 初始化
+showQuestion(0);
+</script>
+</body>
+</html>

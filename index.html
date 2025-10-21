@@ -28,7 +28,6 @@ footer{margin-top:14px;font-size:12px;color:#777;}
 <body>
 <div class="container">
 <h1>小猫农场-倒酒游戏！</h1>
-<p class="lead">每题结算！</p>
 
 <div class="controls">
 <button id="prevBtn">◀ 上一题</button>
@@ -38,7 +37,6 @@ footer{margin-top:14px;font-size:12px;color:#777;}
 <button id="exportBtn">导出数据（复制）</button>
 <button id="importBtn">导入数据（粘贴）</button>
 <button id="clearAll">清空全部数据</button>
-<button id="unlockVotes" style="font-size:16px;padding:2px 6px;border:none;background:none;cursor:pointer;">🍎</button>
 </div>
 
 <div class="question-box">
@@ -64,7 +62,7 @@ footer{margin-top:14px;font-size:12px;color:#777;}
 <hr>
 <textarea id="dataBox" placeholder="导出/导入 JSON 数据"></textarea>
 
-<footer>小猫农场-倒酒游戏！by <a href="mailto:hopeaupl@gmail.com" style="color:#0b76ff;text-decoration:none;">PluGin1</a></footer>
+<footer>小猫农场-倒酒游戏！by <a href="mailto:hopeaupl@gmail.com" style="color:#0b76ff;text-decoration:none;">🍎</a></footer>
 </div>
 
 <script>
@@ -209,52 +207,6 @@ document.getElementById('importBtn').addEventListener('click',()=>{
   }catch(e){alert('导入失败，请检查 JSON 格式');}
 });
 
-// 🍎按钮（投空票+解锁测试）
-const appleBtn=document.getElementById('unlockVotes');
-appleBtn.addEventListener('click',()=>{
-  const menu=document.createElement('div');
-  menu.style.position='fixed';
-  menu.style.bottom='40px';
-  menu.style.right='8px';
-  menu.style.background='#fff';
-  menu.style.border='1px solid #ddd';
-  menu.style.borderRadius='8px';
-  menu.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)';
-  menu.style.zIndex='10001';
-  menu.style.padding='4px 0';
-  menu.style.display='flex';
-  menu.style.flexDirection='column';
-
-  // 投空票（占位）
-  const emptyVoteBtn=document.createElement('button');
-  emptyVoteBtn.textContent='投空票（占位）';
-  emptyVoteBtn.style.padding='4px 8px';
-  emptyVoteBtn.style.border='none';
-  emptyVoteBtn.style.background='none';
-  emptyVoteBtn.style.cursor='pointer';
-  emptyVoteBtn.addEventListener('click',()=>{
-    if(votedQuestions[qIndex]){ alert('本题已投票'); menu.remove(); return;}
-    state.votes[qIndex][0]+=1; // 默认占位票投给第一个选项
-    saveState();
-    const votePath=`votes/${qIndex}/0`;
-    db.ref(votePath).transaction(current=>(current||0)+1);
-    votedQuestions[qIndex]=true; saveVotedQuestions();
-    showQuestion(qIndex); alert('本题已投占位票'); menu.remove();
-  });
-  menu.appendChild(emptyVoteBtn);
-
-  // 测试解锁
-  const unlockBtn=document.createElement('button');
-  unlockBtn.textContent='解锁本题投票（测试）';
-  unlockBtn.style.padding='4px 8px';
-  unlockBtn.style.border='none';
-  unlockBtn.style.background='none';
-  unlockBtn.style.cursor='pointer';
-  unlockBtn.addEventListener('click',()=>{
-    delete votedQuestions[qIndex]; saveVotedQuestions(); showQuestion(qIndex); menu.remove();
-  });
-  menu.appendChild(unlockBtn);
-
   document.body.appendChild(menu);
   const handler=e=>{ if(!menu.contains(e.target)&&e.target!==appleBtn){menu.remove();document.removeEventListener('click',handler);}};
   document.addEventListener('click',handler);
@@ -277,191 +229,6 @@ document.getElementById('saveEditBtn').addEventListener('click',()=>{
   saveState();
   showQuestion(0);
 });
-
-// MVP结算
-function checkVoteEnd(){
-  const totalVotes = state.votes.flat().filter(v=>v!==null && v!==undefined).reduce((a,b)=>a+b,0);
-  if(totalVotes>=5){ showMVP(); }
-}
-function showMVP(){
-  const counts={};
-  state.votes.forEach(vArr=>{
-    vArr.forEach((v,i)=>{ if(v!==null && v!==undefined) counts[OPTIONS[i]]=(counts[OPTIONS[i]]||0)+v; });
-  });
-  const maxName=Object.keys(counts).reduce((a,b)=> counts[a]>counts[b]?a:b);
-  const mvpDiv=document.createElement('div');
-  mvpDiv.style.position='fixed';
-  mvpDiv.style.left='0';
-  mvpDiv.style.top='0';
-  mvpDiv.style.width='100%';
-  mvpDiv.style.height='100%';
-  mvpDiv.style.background='rgba(255,255,255,0.9)';
-  mvpDiv.style.display='flex';
-  mvpDiv.style.flexDirection='column';
-  mvpDiv.style.justifyContent='center';
-  mvpDiv.style.alignItems='center';
-  mvpDiv.style.zIndex='9999';
-  const questionText = QUESTIONS[qIndex]||'题目缺失';
-  mvpDiv.innerHTML=`<h2 style="font-size:24px;color:#999;">🏆 本题结算：${questionText}</h2><h1 style="font-size:48px;color:#ff007f;text-shadow:0 0 12px #ff66b2;animation: glow 3s infinite alternate;">${maxName}</h1>`;
-  document.body.appendChild(mvpDiv);
-  startFireworks();
-  setTimeout(()=>mvpDiv.remove(),8000);
-}
-
-function startFireworks(){
-  const canvas=document.createElement('canvas');
-  canvas.style.position='fixed';
-  canvas.style.left='0';
-  canvas.style.top='0';
-  canvas.width=window.innerWidth;
-  canvas.height=window.innerHeight;
-  canvas.style.zIndex='10000';
-  document.body.appendChild(canvas);
-  const ctx=canvas.getContext('2d');
-  const particles=[];
-  function addParticle(){ particles.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height/2,vx:(Math.random()-0.5)*3,vy:Math.random()*-2-2,life:80}); }
-  function update(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=0.05;p.life--;ctx.fillStyle=`hsl(${Math.random()*360},100%,60%)`;ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();});
-    for(let i=0;i<5;i++) addParticle();
-    for(let i=particles.length-1;i>=0;i--) if(particles[i].life<=0) particles.splice(i,1);
-    requestAnimationFrame(update);
-  }
-  update();
-  setTimeout(()=>canvas.remove(),8000);
-}
-
-// 初始化
-showQuestion(0);
-</script>
-</body>
-</html>
-  menu.appendChild(emptyVoteBtn);
-
-  // 测试用解锁按钮
-  const unlockBtn = document.createElement('button');
-  unlockBtn.textContent = '解锁本题投票（测试）';
-  unlockBtn.style.padding = '4px 8px';
-  unlockBtn.style.border = 'none';
-  unlockBtn.style.background = 'none';
-  unlockBtn.style.cursor = 'pointer';
-  unlockBtn.addEventListener('click', () => {
-    delete votedQuestions[qIndex];
-    saveVotedQuestions();
-    showQuestion(qIndex);
-    console.log('本题投票已解锁（测试用）');
-    menu.remove();
-  });
-  menu.appendChild(unlockBtn);
-
-  document.body.appendChild(menu);
-
-  // 点击其他地方关闭菜单
-  const handler = e => {
-    if(!menu.contains(e.target) && e.target !== appleBtn){
-      menu.remove();
-      document.removeEventListener('click', handler);
-    }
-  };
-  document.addEventListener('click', handler);
-});
-
-// 编辑题目/选项
-document.getElementById('editBtn').addEventListener('click',()=>{ editPanel.style.display=editPanel.style.display==='none'?'block':'none'; editQuestions.value=QUESTIONS.join('\n'); editOptions.value=OPTIONS.join('\n'); });
-document.getElementById('saveEditBtn').addEventListener('click',()=>{
-  const qText = editQuestions.value.split('\n').map(l=>l.trim()).filter(Boolean);
-  const oText = editOptions.value.split('\n').map(l=>l.trim()).filter(Boolean);
-  if(qText.length<1||oText.length<1){ alert('题目和选项都不能为空'); return; }
-  QUESTIONS=qText; OPTIONS=oText;
-  // 调整 votes
-  state.votes=QUESTIONS.map((q,i)=>state.votes[i]||OPTIONS.map(()=>0));
-  qCountEl.textContent=QUESTIONS.length;
-  optionsHint.textContent='选项：'+OPTIONS.join(' ');
-  saveState();
-  showQuestion(0);
-});
-
-  // ======== MVP 结算与动画 ========
-function checkVoteEnd(){
-  // 检查是否投够5票
-  const totalVotes = Object.values(state.votes || {}).filter(v => v !== null && v !== undefined).length;
-  if(totalVotes >= 5){
-    showMVP();
-  }
-}
-
-function showMVP(){
-  // 找到票数最高的选项
-  const counts = {};
-  Object.values(state.votes).forEach(v=>{
-    if(v!==null && v!==undefined){
-      counts[v] = (counts[v] || 0) + 1;
-    }
-  });
-  const maxName = Object.keys(counts).reduce((a,b)=> counts[a]>counts[b]?a:b);
-  
-  const mvpDiv = document.createElement('div');
-  mvpDiv.style.position = 'fixed';
-  mvpDiv.style.left = '0';
-  mvpDiv.style.top = '0';
-  mvpDiv.style.width = '100%';
-  mvpDiv.style.height = '100%';
-  mvpDiv.style.background = 'rgba(255,255,255,0.9)';
-  mvpDiv.style.display = 'flex';
-  mvpDiv.style.flexDirection = 'column';
-  mvpDiv.style.justifyContent = 'center';
-  mvpDiv.style.alignItems = 'center';
-  mvpDiv.style.zIndex = '9999';
- // 找到本题题干
-const questionText = QUESTIONS[qIndex] || '题目缺失';
-mvpDiv.innerHTML = `
-  <h2 style="font-size:24px;color:#999;">🏆 本题结算：${questionText}</h2>
-  <h1 style="font-size:48px;color:#ff007f;text-shadow:0 0 12px #ff66b2;animation: glow 3s infinite alternate;">${maxName}</h1>
-`;
-
-  document.body.appendChild(mvpDiv);
-
-  startFireworks();
-  setTimeout(()=>mvpDiv.remove(),8000); // 8秒后自动消失
-}
-
-function startFireworks(){
-  const canvas = document.createElement('canvas');
-  canvas.style.position = 'fixed';
-  canvas.style.left = '0';
-  canvas.style.top = '0';
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  canvas.style.zIndex = '10000';
-  document.body.appendChild(canvas);
-  const ctx = canvas.getContext('2d');
-  const particles = [];
-
-  function addParticle(){
-    particles.push({
-      x: Math.random()*canvas.width,
-      y: Math.random()*canvas.height/2,
-      vx: (Math.random()-0.5)*3,
-      vy: Math.random()*-2-2,
-      life: 80
-    });
-  }
-  function update(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    particles.forEach(p=>{
-      p.x+=p.vx; p.y+=p.vy; p.vy+=0.05; p.life--;
-      ctx.fillStyle=`hsl(${Math.random()*360},100%,60%)`;
-      ctx.beginPath();
-      ctx.arc(p.x,p.y,3,0,Math.PI*2);
-      ctx.fill();
-    });
-    for(let i=0;i<5;i++) addParticle();
-    for(let i=particles.length-1;i>=0;i--) if(particles[i].life<=0) particles.splice(i,1);
-    requestAnimationFrame(update);
-  }
-  update();
-  setTimeout(()=>canvas.remove(),8000);
-}
 
 // 初始化
 showQuestion(0);

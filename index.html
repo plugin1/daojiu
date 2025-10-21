@@ -282,11 +282,6 @@ appleBtn.addEventListener('click', () => {
   menu.style.zIndex = '10001';
   menu.style.padding = '4px 0';
   
-  menu.innerHTML = `
-    <div style="padding:6px 12px;cursor:pointer;">🕳️ 投空票</div>
-    <div style="padding:6px 12px;cursor:pointer;">测试版功能</div>
-  `;
-
   // 点击投空票
   menu.children[0].addEventListener('click', () => {
     state.votes[qIndex] = null; // 空票占位

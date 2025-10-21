@@ -159,9 +159,9 @@ function showQuestion(idx){
       btn.className = 'option';
       btn.dataset.idx = i;
       btn.innerHTML = `<div style="font-weight:600">${OPTIONS[i]}</div><div class="small">点击投票</div>`;
-  
-  // ✅ 判断当前设备本题是否已投票
-      if(votedQuestions[qIndex]){
+
+  // 如果已投票本题，按钮不可点
+      if(votedQuestions[idx]){
         btn.style.opacity = 0.6;
         btn.style.pointerEvents = 'none';
         btn.querySelector('.small').textContent = '已投票';
@@ -171,8 +171,6 @@ function showQuestion(idx){
 
       optionsDiv.appendChild(btn);
     });
-
-
 
     // 渲染图表和总票数
     renderChart(counts);

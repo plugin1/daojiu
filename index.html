@@ -40,7 +40,7 @@ footer{margin-top:14px;font-size:12px;color:#777;}
 <button id="clearAll">清空全部数据</button>
 <button id="unlockVotes" style="font-size:16px;padding:2px 6px;border:none;background:none;cursor:pointer;">🍎</button>
 </div>
-
+  
 <div class="question-box">
 <div class="small">第 <span id="qIndex">1</span> / 共 <span id="qCount">0</span> 题</div>
 <h2 id="questionTitle">载入中...</h2>
@@ -171,6 +171,21 @@ function showQuestion(idx){
       optionsDiv.appendChild(btn);
     });
 
+// --- 投票前隐藏统计区域 ---
+const chartCanvas = document.getElementById('chart');
+const statsDiv = document.querySelector('.stats');
+
+if (votedQuestions[idx]) {
+  // 如果已经投过票，显示统计
+  chartCanvas.style.display = 'block';
+  summary.style.display = 'block';
+} else {
+  // 如果未投票，隐藏统计
+  chartCanvas.style.display = 'none';
+  summary.style.display = 'none';
+}
+
+    
     // 渲染图表和总票数
     renderChart(counts);
     const total = counts.reduce((a, b) => a + b, 0);
@@ -198,6 +213,11 @@ function submitVote(optionIdx){
   // 标记已投票
   votedQuestions[qIndex] = true;
   saveVotedQuestions();
+
+    // 投票后立即显示统计
+  document.getElementById('chart').style.display = 'block';
+  summary.style.display = 'block';
+
 }
 
 // Buttons
@@ -273,9 +293,35 @@ document.getElementById('saveEditBtn').addEventListener('click',()=>{
   saveState();
   showQuestion(0);
 });
+  
+// 🍎按钮：统计所有题目加总结果
+document.getElementById('unlockVotes').addEventListener('click', () => {
+  if (!confirm('统计所有题目总得票？')) return;
 
+  // 计算所有题目的总票数
+  const totalCounts = OPTIONS.map(() => 0);
+  state.votes.forEach(qVotes => {
+    qVotes.forEach((c, i) => {
+      totalCounts[i] += c;
+    });
+  });
+
+  // 在页面上显示结果
+  const totalText = totalCounts.map((c, i) => `${OPTIONS[i]}：${c}`).join(' ／ ');
+  alert(`🍎 全部题目总得票：\n${totalText}`);
+
+  // 更新图表显示为总票数模式
+  renderChart(totalCounts);
+  summary.textContent = `🍎 全部题目加总结果（${totalText}）`;
+  questionTitle.textContent = '🍎 全部题目总得票统计';
+});
+
+  
 // 初始化
 showQuestion(0);
+document.getElementById('chart').style.display = 'none';
+summary.style.display = 'none';
+  
 </script>
 </body>
 </html>

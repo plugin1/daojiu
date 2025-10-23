@@ -23,7 +23,7 @@ button.primary{background:#0b76ff;color:#fff;border-color:#0b76ff;}
   text-align:center;
   cursor:pointer;
   background:#fcfcfc;
-  display:flex;            /* 🧸 新增：让头像和文字垂直对齐 */
+  display:flex;
   flex-direction:column;
   align-items:center;
 }
@@ -46,7 +46,7 @@ footer{margin-top:14px;font-size:12px;color:#777;}
 <button id="prevBtn">◀ 上一题</button>
 <button id="nextBtn" class="primary">下一题 ▶</button>
 <button id="resetQuestion">重置本题票数</button>
-<button id="editBtn">⚙ 编辑题目/选项</button>
+<button id="editBtn">⚙编辑题目/选项</button>
 <button id="exportBtn">导出数据（复制）</button>
 <button id="importBtn">导入数据（粘贴）</button>
 <button id="clearAll">清空全部数据</button>
@@ -69,7 +69,7 @@ footer{margin-top:14px;font-size:12px;color:#777;}
 <div id="editPanel" style="display:none;margin-top:12px;">
 <h3>编辑题目与选项</h3>
 <textarea id="editQuestions" placeholder="每行一个问题"></textarea>
-<textarea id="editOptions" placeholder="每行一个选项，如：Fumika"></textarea>
+<textarea id="editOptions" placeholder="每行一个选项"></textarea>
 <button id="saveEditBtn">保存修改</button>
 </div>
 
@@ -80,13 +80,10 @@ footer{margin-top:14px;font-size:12px;color:#777;}
 </div>
 
 <script>
-// ========== 可编辑题目与选项 ==========
 let QUESTIONS = [
 '谁最爱在公共场合做莫名其妙的事','谁最可能在出事的时候冲在前面','谁最可能先有小孩','谁最可能酒后联系前任','谁最容易被PUA','谁最有可能先结婚','谁最喜欢年下','谁最爱看美女/帅哥','谁最爱忘事','谁最可能一夜情','谁最容易心动','谁最像M','谁最容易遇上渣女/男','谁最有上进心','谁情绪最稳定','谁最有可能吃回头草','谁脾气最大','谁最可能为爱放弃事业','谁最八卦','谁最恋爱脑','谁分手后会最快走出来','谁最有桃花'
 ];
 let OPTIONS = ['Fumika','小美','盼盼','Selina','Zoe'];
-
-// 🧸 新增：头像文件名数组
 const OPTION_IMAGES = [
   'Fumika.jpg',
   '小美.jpg',
@@ -95,14 +92,12 @@ const OPTION_IMAGES = [
   'Zoe.jpg'
 ];
 
-// ========== 状态管理 ==========
 let state = loadState();
 let qIndex = 0;
 const STORAGE_KEY = 'daojiu_votes_v2';
 let votedQuestions = JSON.parse(localStorage.getItem('votedQuestions')||'{}');
 function saveVotedQuestions(){ localStorage.setItem('votedQuestions', JSON.stringify(votedQuestions)); }
 
-// DOM
 const qCountEl = document.getElementById('qCount');
 const qIndexEl = document.getElementById('qIndex');
 const questionTitle = document.getElementById('questionTitle');
@@ -116,7 +111,6 @@ const editOptions = document.getElementById('editOptions');
 qCountEl.textContent = QUESTIONS.length;
 optionsHint.textContent = '选项：'+OPTIONS.join(' ');
 
-// Firebase 初始化
 const firebaseConfig = {
 apiKey: "AIzaSyB5VcW8kGCWQrhOUV5-sq9NtTKzXHJAl78", 
 authDomain: "daojiu-f970e.firebaseapp.com", 
@@ -129,7 +123,6 @@ appId: "1:438370344777:web:a2c0f25a6052b339d0c498"
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// Chart.js
 const ctx = document.getElementById('chart').getContext('2d');
 let chart;
 function renderChart(counts){
@@ -138,12 +131,10 @@ function renderChart(counts){
   chart = new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'票数',data:counts}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,precision:0}}}});
 }
 
-// 状态管理
 function makeEmptyState(){ return {votes:QUESTIONS.map(()=>OPTIONS.map(()=>0)), currentQuestion:0}; }
 function loadState(){ try{const raw=localStorage.getItem(STORAGE_KEY);return raw?JSON.parse(raw):makeEmptyState();}catch(e){return makeEmptyState();} }
 function saveState(){ localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); }
 
-// 🧸 改写 showQuestion：每个选项按钮显示头像
 function showQuestion(idx){
   qIndex = idx;
   qIndexEl.textContent = idx + 1;
@@ -162,7 +153,6 @@ function showQuestion(idx){
       btn.className = 'option';
       btn.dataset.idx = i;
 
-      // 🖼️ 头像部分
       const img = document.createElement('img');
       img.src = OPTION_IMAGES[i];
       img.alt = OPTIONS[i];
@@ -172,7 +162,6 @@ function showQuestion(idx){
       img.style.objectFit = 'cover';
       img.style.marginBottom = '6px';
 
-      // 🖼️ 名字与状态
       const nameDiv = document.createElement('div');
       nameDiv.style.fontWeight = '600';
       nameDiv.textContent = OPTIONS[i];
@@ -194,7 +183,6 @@ function showQuestion(idx){
       optionsDiv.appendChild(btn);
     });
 
-    // 投票前隐藏统计
     const chartCanvas=document.getElementById('chart');
     if(votedQuestions[idx]){
       chartCanvas.style.display='block';
@@ -210,10 +198,9 @@ function showQuestion(idx){
   });
 }
 
-// 投票函数不变
 function submitVote(optionIdx){
   if(votedQuestions[qIndex]){
-    alert('每题每人只能投一次');return;
+    alert('每题每人限投一次');return;
   }
   state.votes[qIndex][optionIdx]+=1;
   saveState();
@@ -225,27 +212,25 @@ function submitVote(optionIdx){
   summary.style.display='block';
 }
 
-// 其他按钮代码保持原样
 document.getElementById('nextBtn').addEventListener('click',()=>{if(qIndex<QUESTIONS.length-1)qIndex++;showQuestion(qIndex);});
 document.getElementById('prevBtn').addEventListener('click',()=>{if(qIndex>0)qIndex--;showQuestion(qIndex);});
 document.getElementById('resetQuestion').addEventListener('click',()=>{if(confirm('确定重置本题票数吗？')){state.votes[qIndex]=OPTIONS.map(()=>0);saveState();db.ref(`votes/${qIndex}`).set(OPTIONS.map(()=>0));delete votedQuestions[qIndex];saveVotedQuestions();showQuestion(qIndex);}});
-document.getElementById('clearAll').addEventListener('click',()=>{if(confirm('确定清空全部数据？')){state=makeEmptyState();saveState();QUESTIONS.forEach((_,idx)=>db.ref(`votes/${idx}`).set(OPTIONS.map(()=>0)));votedQuestions={};saveVotedQuestions();showQuestion(0);}});
-document.getElementById('exportBtn').addEventListener('click',()=>{dataBox.value=JSON.stringify(state);dataBox.select();try{document.execCommand('copy');alert('已复制到剪贴板，可发给其他人同步');}catch(e){alert('请手动复制');}});
+document.getElementById('clearAll').addEventListener('click',()=>{if(confirm('确定清空全部数据吗？')){state=makeEmptyState();saveState();QUESTIONS.forEach((_,idx)=>db.ref(`votes/${idx}`).set(OPTIONS.map(()=>0)));votedQuestions={};saveVotedQuestions();showQuestion(0);}});
+document.getElementById('exportBtn').addEventListener('click',()=>{dataBox.value=JSON.stringify(state);dataBox.select();try{document.execCommand('copy');alert('已复制到剪贴板');}catch(e){alert('请手动复制');}});
 document.getElementById('importBtn').addEventListener('click',()=>{const raw=dataBox.value.trim();if(!raw){alert('请先粘贴JSON');return;}try{const obj=JSON.parse(raw);if(!obj.votes||!Array.isArray(obj.votes)||obj.votes.length!==QUESTIONS.length)throw '格式错误';state=obj;saveState();showQuestion(qIndex);alert('已导入数据');}catch(e){alert('导入失败');}});
 document.getElementById('editBtn').addEventListener('click',()=>{editPanel.style.display=editPanel.style.display==='none'?'block':'none';editQuestions.value=QUESTIONS.join('\n');editOptions.value=OPTIONS.join('\n');});
 document.getElementById('saveEditBtn').addEventListener('click',()=>{const qText=editQuestions.value.split('\n').map(l=>l.trim()).filter(Boolean);const oText=editOptions.value.split('\n').map(l=>l.trim()).filter(Boolean);if(qText.length<1||oText.length<1){alert('题目和选项都不能为空');return;}QUESTIONS=qText;OPTIONS=oText;state.votes=QUESTIONS.map((q,i)=>state.votes[i]||OPTIONS.map(()=>0));qCountEl.textContent=QUESTIONS.length;optionsHint.textContent='选项：'+OPTIONS.join(' ');saveState();showQuestion(0);});
 
-// 🍎 统计所有题目加总
 document.getElementById('unlockVotes').addEventListener('click',()=>{
-  if(!confirm('显示所有题目总得票柱状图？'))return;
+  if(!confirm('结束？'))return;
   const totalCounts=OPTIONS.map(()=>0);
   state.votes.forEach(qVotes=>{qVotes.forEach((c,i)=>{totalCounts[i]+=c;});});
   renderChart(totalCounts);
   document.getElementById('chart').style.display='block';
   summary.style.display='block';
   const totalText=totalCounts.map((c,i)=>`${OPTIONS[i]}：${c}`).join(' ／ ');
-  questionTitle.textContent='🍎 全部题目总得票统计';
-  summary.textContent=`🍎 总票数加总：${totalCounts.reduce((a,b)=>a+b,0)}（${totalText}）`;
+  questionTitle.textContent='🍎 光荣榜';
+  summary.textContent=`🍎 总票数：${totalCounts.reduce((a,b)=>a+b,0)}（${totalText}）`;
 });
 
 // 初始化

@@ -294,36 +294,28 @@ document.getElementById('saveEditBtn').addEventListener('click',()=>{
   showQuestion(0);
 });
   
-// 🍎按钮总票数（改版：显示图表而不是弹窗）
-document.getElementById('unlockVotes').addEventListener('click',()=>{
-  const confirmed = confirm('显示全部题目加总统计？');
-  if(!confirmed) return;
+// 🍎【修改后】按钮：统计所有题目加总结果并显示柱状图
+document.getElementById('unlockVotes').addEventListener('click', () => {
+  if (!confirm('显示所有题目总得票柱状图？')) return;
 
-  // 计算总票数
-  const totalCounts = OPTIONS.map(()=>0);
+  // 🍎 计算所有题目的总票数
+  const totalCounts = OPTIONS.map(() => 0);
   state.votes.forEach(qVotes => {
-    qVotes.forEach((c,i)=>{ totalCounts[i]+=c; });
-  });
-
-  // 加载头像并渲染图表
-  Promise.all(OPTION_IMAGES.map(src=>{
-    return new Promise(resolve=>{
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.src = src;
-      img.onload = ()=>resolve(img);
+    qVotes.forEach((c, i) => {
+      totalCounts[i] += c;
     });
-  })).then(imgElements=>{
-    // 显示加总结果
-    renderChart(totalCounts,imgElements);
-    document.getElementById('chart').style.display='block';
-    summary.style.display='block';
-    const totalText = totalCounts.map((c,i)=>`${OPTIONS[i]}：${c}`).join(' ／ ');
-    questionTitle.textContent='🍎 全部题目总得票统计';
-    summary.textContent=`总票数：${totalCounts.reduce((a,b)=>a+b,0)}（${totalText}）`;
   });
-});
 
+  // 🍎 显示统计图表
+  renderChart(totalCounts);
+  document.getElementById('chart').style.display = 'block';
+  summary.style.display = 'block';
+
+  // 🍎 更新标题与文字说明
+  const totalText = totalCounts.map((c, i) => `${OPTIONS[i]}：${c}`).join(' ／ ');
+  questionTitle.textContent = '🍎 全部题目总得票统计';
+  summary.textContent = `🍎 总票数加总：${totalCounts.reduce((a,b)=>a+b,0)}（${totalText}）`;
+});
   
 // 初始化
 showQuestion(0);

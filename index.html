@@ -22,6 +22,7 @@ textarea{width:100%;min-height:90px;}
 footer{margin-top:14px;font-size:12px;color:#777;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-pattern@1.1.0/dist/chartjs-plugin-pattern.min.js"></script>
 <!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -68,8 +69,7 @@ footer{margin-top:14px;font-size:12px;color:#777;}
 </div>
 
 <script>
-  
-  const OPTION_IMAGES = [
+const OPTION_IMAGES = [
   'Fumika.jpg',
   '小美.jpg',
   '盼盼.jpg',
@@ -77,21 +77,17 @@ footer{margin-top:14px;font-size:12px;color:#777;}
   'Zoe.jpg'
 ];
 
-// ========== 可编辑题目与选项 ==========
 let QUESTIONS = [
 '谁最爱在公共场合做莫名其妙的事','谁最可能在出事的时候冲在前面','谁最可能先有小孩','谁最可能酒后联系前任','谁最容易被PUA','谁最有可能先结婚','谁最喜欢年下','谁最爱看美女/帅哥','谁最爱忘事','谁最可能一夜情','谁最容易心动','谁最像M','谁最容易遇上渣女/男','谁最有上进心','谁情绪最稳定','谁最有可能吃回头草','谁脾气最大','谁最可能为爱放弃事业','谁最八卦','谁最恋爱脑','谁分手后会最快走出来','谁最有桃花'
 ];
 let OPTIONS = ['Fumika','小美','盼盼','Selina','Zoe'];
 
-// ========== 状态管理 ==========
 let state = loadState();
 let qIndex = 0;
 const STORAGE_KEY = 'daojiu_votes_v2';
-  // 本地投票限制
 let votedQuestions = JSON.parse(localStorage.getItem('votedQuestions')||'{}');
 function saveVotedQuestions(){ localStorage.setItem('votedQuestions', JSON.stringify(votedQuestions)); }
 
-// DOM
 const qCountEl = document.getElementById('qCount');
 const qIndexEl = document.getElementById('qIndex');
 const questionTitle = document.getElementById('questionTitle');
@@ -105,7 +101,6 @@ const editOptions = document.getElementById('editOptions');
 qCountEl.textContent = QUESTIONS.length;
 optionsHint.textContent = '选项：'+OPTIONS.join(' ');
 
-// 初始化 Firebase
 const firebaseConfig = {
 apiKey: "AIzaSyB5VcW8kGCWQrhOUV5-sq9NtTKzXHJAl78", 
 authDomain: "daojiu-f970e.firebaseapp.com", 
@@ -118,14 +113,6 @@ appId: "1:438370344777:web:a2c0f25a6052b339d0c498"
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// Initialize Firebase const app = initializeApp(firebaseConfig);
-/*
-const firebaseConfig = { ... };
-const app = firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-*/
-
-// Chart.js
 const ctx = document.getElementById('chart').getContext('2d');
 let chart;
 function renderChart(counts){
@@ -139,19 +126,18 @@ function renderChart(counts){
   if(chart) chart.destroy();
   chart = new Chart(ctx,{
     type:'bar',
+    plugins: [ChartPatternPlugin],
     data:{
       labels,
       datasets:[{
         label:'票数',
         data:counts,
-        backgroundColor: counts.map((_,i)=>({
-          pattern: {
-            image: imgElements[i],
-            x:0,
-            y:0,
-            width:50,
-            height:50
-          }
+        backgroundColor: imgElements.map(img => ({
+          pattern: img,
+          patternX: 'center',
+          patternY: 'center',
+          patternWidth: 50,
+          patternHeight: 50
         }))
       }]
     },
@@ -166,42 +152,27 @@ function renderChart(counts){
   });
 }
 
-
-// 状态
 function makeEmptyState(){ return {votes:QUESTIONS.map(()=>OPTIONS.map(()=>0)), currentQuestion:0}; }
 function loadState(){ try{const raw = localStorage.getItem(STORAGE_KEY);return raw?JSON.parse(raw):makeEmptyState();}catch(e){return makeEmptyState();} }
 function saveState(){ localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); }
 
-// 显示题目（支持 Firebase Realtime Database 实时更新）
 function showQuestion(idx){
   qIndex = idx;
   qIndexEl.textContent = idx + 1;
   questionTitle.textContent = QUESTIONS[idx] || '题目缺失';
   optionsDiv.innerHTML = '';
-
-  // 获取当前题目的数据库引用
   const voteRef = db.ref(`votes/${idx}`);
-
-  // 先解绑旧监听，防止重复绑定
   voteRef.off();
-
-  // 监听数据库变化
   voteRef.on('value', snapshot => {
     const counts = snapshot.val() || OPTIONS.map(() => 0);
-
-    // 更新本地状态，保证导出/导入一致
     state.votes[idx] = counts;
     saveState();
-
-    // 渲染选项按钮
     optionsDiv.innerHTML = '';
     counts.forEach((c, i) => {
       const btn = document.createElement('div');
       btn.className = 'option';
       btn.dataset.idx = i;
       btn.innerHTML = `<div style="font-weight:600">${OPTIONS[i]}</div><div class="small">点击投票</div>`;
-
-  // 如果已投票本题，按钮不可点
       if(votedQuestions[idx]){
         btn.style.opacity = 0.6;
         btn.style.pointerEvents = 'none';
@@ -209,106 +180,66 @@ function showQuestion(idx){
       } else {
         btn.addEventListener('click', () => { submitVote(i); });
       }
-
       optionsDiv.appendChild(btn);
     });
 
-// --- 投票前隐藏统计区域 ---
-const chartCanvas = document.getElementById('chart');
-const statsDiv = document.querySelector('.stats');
+    if (votedQuestions[idx]) {
+      document.getElementById('chart').style.display = 'block';
+      summary.style.display = 'block';
+    } else {
+      document.getElementById('chart').style.display = 'none';
+      summary.style.display = 'none';
+    }
 
-if (votedQuestions[idx]) {
-  // 如果已经投过票，显示统计
-  chartCanvas.style.display = 'block';
-  summary.style.display = 'block';
-} else {
-  // 如果未投票，隐藏统计
-  chartCanvas.style.display = 'none';
-  summary.style.display = 'none';
-}
-
-    
-    // 渲染图表和总票数
     renderChart(counts);
     const total = counts.reduce((a, b) => a + b, 0);
     summary.textContent = `总票数：${total}（${counts.map((c,i)=>OPTIONS[i]+':'+c).join(' ／ ')}）`;
   });
 }
 
-// 投票
 function submitVote(optionIdx){
-  if(votedQuestions[qIndex]){
-    alert('每题每人只能投一次');
-    return;
-  }
-
-  // 更新本地状态
+  if(votedQuestions[qIndex]){ alert('每题每人只能投一次'); return; }
   state.votes[qIndex][optionIdx] += 1;
   saveState();
-
-  // 更新数据库
   const votePath = `votes/${qIndex}/${optionIdx}`;
-  db.ref(votePath).transaction(current => {
-    return (current || 0) + 1;
-  });
-
-  // 标记已投票
+  db.ref(votePath).transaction(current => (current || 0) + 1);
   votedQuestions[qIndex] = true;
   saveVotedQuestions();
-
-    // 投票后立即显示统计
   document.getElementById('chart').style.display = 'block';
   summary.style.display = 'block';
-
 }
 
-// Buttons
 document.getElementById('nextBtn').addEventListener('click',()=>{ if(qIndex<QUESTIONS.length-1) qIndex++; showQuestion(qIndex); });
 document.getElementById('prevBtn').addEventListener('click',()=>{ if(qIndex>0) qIndex--; showQuestion(qIndex); });
 document.getElementById('resetQuestion').addEventListener('click',()=>{ 
   if(confirm('确定重置本题票数吗？')){ 
     state.votes[qIndex]=OPTIONS.map(()=>0); 
     saveState(); 
-    // Firebase 同步
     db.ref(`votes/${qIndex}`).set(OPTIONS.map(()=>0));
-    // 同步清除本地投票标记
     delete votedQuestions[qIndex]; 
     saveVotedQuestions();
     showQuestion(qIndex); 
   } 
 });
-
 document.getElementById('clearAll').addEventListener('click',()=>{ 
   if(confirm('确定清空全部数据？')){ 
     state=makeEmptyState(); 
     saveState(); 
-    // Firebase 同步
     QUESTIONS.forEach((_, idx) => db.ref(`votes/${idx}`).set(OPTIONS.map(()=>0)));
-    // 清除本地投票标记
     votedQuestions = {}; 
     saveVotedQuestions();
     showQuestion(0); 
   } 
 });
-
-// 导出/导入
 document.getElementById('exportBtn').addEventListener('click', () => {
   dataBox.value = JSON.stringify(state);
   dataBox.select();
-  try {
-    document.execCommand('copy');
-    alert('已复制到剪贴板，可发给其他人同步');
-  } catch (e) {
-    alert('请手动复制右方文本');
-  }
+  try { document.execCommand('copy'); alert('已复制到剪贴板，可发给其他人同步'); } 
+  catch (e) { alert('请手动复制右方文本'); }
 });
-
 document.getElementById('importBtn').addEventListener('click', () => {
   const raw = dataBox.value.trim();
-  if (!raw) { 
-    alert('请先粘贴 JSON 数据'); 
-    return; 
-  }
+  if (!raw) { alert('请先粘贴 JSON 数据'); return; }
   try {
     const obj = JSON.parse(raw);
     if (!obj.votes || !Array.isArray(obj.votes) || obj.votes.length !== QUESTIONS.length) throw '格式错误';
@@ -316,54 +247,39 @@ document.getElementById('importBtn').addEventListener('click', () => {
     saveState(); 
     showQuestion(qIndex); 
     alert('已导入数据'); 
-  } catch(e) {
-    alert('导入失败，请检查 JSON 格式');
-  }
+  } catch(e) { alert('导入失败，请检查 JSON 格式'); }
 });
-
-// 编辑题目/选项
-document.getElementById('editBtn').addEventListener('click',()=>{ editPanel.style.display=editPanel.style.display==='none'?'block':'none'; editQuestions.value=QUESTIONS.join('\n'); editOptions.value=OPTIONS.join('\n'); });
+document.getElementById('editBtn').addEventListener('click',()=>{ 
+  editPanel.style.display=editPanel.style.display==='none'?'block':'none'; 
+  editQuestions.value=QUESTIONS.join('\n'); 
+  editOptions.value=OPTIONS.join('\n'); 
+});
 document.getElementById('saveEditBtn').addEventListener('click',()=>{
   const qText = editQuestions.value.split('\n').map(l=>l.trim()).filter(Boolean);
   const oText = editOptions.value.split('\n').map(l=>l.trim()).filter(Boolean);
   if(qText.length<1||oText.length<1){ alert('题目和选项都不能为空'); return; }
   QUESTIONS=qText; OPTIONS=oText;
-  // 调整 votes
   state.votes=QUESTIONS.map((q,i)=>state.votes[i]||OPTIONS.map(()=>0));
   qCountEl.textContent=QUESTIONS.length;
   optionsHint.textContent='选项：'+OPTIONS.join(' ');
   saveState();
   showQuestion(0);
 });
-  
-// 🍎按钮：统计所有题目加总结果
+
 document.getElementById('unlockVotes').addEventListener('click', () => {
   if (!confirm('统计所有题目总得票？')) return;
-
-  // 计算所有题目的总票数
   const totalCounts = OPTIONS.map(() => 0);
-  state.votes.forEach(qVotes => {
-    qVotes.forEach((c, i) => {
-      totalCounts[i] += c;
-    });
-  });
-
-  // 在页面上显示结果
+  state.votes.forEach(qVotes => qVotes.forEach((c, i) => totalCounts[i] += c));
   const totalText = totalCounts.map((c, i) => `${OPTIONS[i]}：${c}`).join(' ／ ');
   alert(`🍎 全部题目总得票：\n${totalText}`);
-
-  // 更新图表显示为总票数模式
   renderChart(totalCounts);
   summary.textContent = `🍎 全部题目加总结果（${totalText}）`;
   questionTitle.textContent = '🍎 全部题目总得票统计';
 });
 
-  
-// 初始化
 showQuestion(0);
 document.getElementById('chart').style.display = 'none';
 summary.style.display = 'none';
-  
 </script>
 </body>
 </html>

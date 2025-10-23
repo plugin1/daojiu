@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>小猫农场-倒酒游戏！</title>
 <style>
-body{font-family: "Segoe UI", "Microsoft YaHei", sans-serif;background:#fafafa;color:#111;padding:16px;}
+body{font-family:"Segoe UI","Microsoft YaHei",sans-serif;background:#fafafa;color:#111;padding:16px;}
 .container{max-width:900px;margin:auto;background:#fff;padding:18px;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.06);}
 h1{font-size:20px;margin-bottom:8px;}
 p.lead{margin:4px 0 18px;color:#555;}
@@ -22,8 +22,6 @@ textarea{width:100%;min-height:90px;}
 footer{margin-top:14px;font-size:12px;color:#777;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-pattern@1.1.0/dist/chartjs-plugin-pattern.min.js"></script>
-<!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
@@ -41,7 +39,7 @@ footer{margin-top:14px;font-size:12px;color:#777;}
 <button id="clearAll">清空全部数据</button>
 <button id="unlockVotes" style="font-size:16px;padding:2px 6px;border:none;background:none;cursor:pointer;">🍎</button>
 </div>
-  
+
 <div class="question-box">
 <div class="small">第 <span id="qIndex">1</span> / 共 <span id="qCount">0</span> 题</div>
 <h2 id="questionTitle">载入中...</h2>
@@ -69,19 +67,22 @@ footer{margin-top:14px;font-size:12px;color:#777;}
 </div>
 
 <script>
+// 🔴 这里是头像图片 URL，需要替换成你自己的 GitHub 仓库 raw URL
 const OPTION_IMAGES = [
-  'Fumika.jpg',
-  '小美.jpg',
-  '盼盼.jpg',
-  'Selina.jpg',
-  'Zoe.jpg'
+  'https://raw.githubusercontent.com/plugin1/daojiu/main/Fumika.jpg',
+  'https://raw.githubusercontent.com/plugin1/daojiu/main/小美.jpg',
+  'https://raw.githubusercontent.com/plugin1/daojiu/main/盼盼.jpg',
+  'https://raw.githubusercontent.com/plugin1/daojiu/main/Selina.jpg',
+  'https://raw.githubusercontent.com/plugin1/daojiu/main/Zoe.jpg'
 ];
 
+// ========== 可编辑题目与选项 ==========
 let QUESTIONS = [
 '谁最爱在公共场合做莫名其妙的事','谁最可能在出事的时候冲在前面','谁最可能先有小孩','谁最可能酒后联系前任','谁最容易被PUA','谁最有可能先结婚','谁最喜欢年下','谁最爱看美女/帅哥','谁最爱忘事','谁最可能一夜情','谁最容易心动','谁最像M','谁最容易遇上渣女/男','谁最有上进心','谁情绪最稳定','谁最有可能吃回头草','谁脾气最大','谁最可能为爱放弃事业','谁最八卦','谁最恋爱脑','谁分手后会最快走出来','谁最有桃花'
 ];
 let OPTIONS = ['Fumika','小美','盼盼','Selina','Zoe'];
 
+// ========== 状态管理 ==========
 let state = loadState();
 let qIndex = 0;
 const STORAGE_KEY = 'daojiu_votes_v2';
@@ -98,9 +99,11 @@ const optionsHint = document.getElementById('optionsHint');
 const editPanel = document.getElementById('editPanel');
 const editQuestions = document.getElementById('editQuestions');
 const editOptions = document.getElementById('editOptions');
+
 qCountEl.textContent = QUESTIONS.length;
 optionsHint.textContent = '选项：'+OPTIONS.join(' ');
 
+// Firebase 初始化
 const firebaseConfig = {
 apiKey: "AIzaSyB5VcW8kGCWQrhOUV5-sq9NtTKzXHJAl78", 
 authDomain: "daojiu-f970e.firebaseapp.com", 
@@ -115,39 +118,30 @@ const db = firebase.database();
 
 const ctx = document.getElementById('chart').getContext('2d');
 let chart;
-function renderChart(counts){
+
+function renderChart(counts, imgs){
   const labels = OPTIONS.slice();
-  const imgElements = OPTION_IMAGES.map(src=>{
-    const img = new Image();
-    img.src = src;
-    return img;
-  });
+  const datasets = [{
+    label:'票数',
+    data:counts,
+    backgroundColor: counts.map((_,i)=>({
+      pattern: {
+        image: imgs[i],
+        x:0,
+        y:0,
+        width:50,
+        height:50
+      }
+    }))
+  }];
 
   if(chart) chart.destroy();
   chart = new Chart(ctx,{
     type:'bar',
-    plugins: [ChartPatternPlugin],
-    data:{
-      labels,
-      datasets:[{
-        label:'票数',
-        data:counts,
-        backgroundColor: imgElements.map(img => ({
-          pattern: img,
-          patternX: 'center',
-          patternY: 'center',
-          patternWidth: 50,
-          patternHeight: 50
-        }))
-      }]
-    },
+    data:{labels,datasets},
     options:{
-      plugins:{
-        legend:{display:false}
-      },
-      scales:{
-        y:{beginAtZero:true,precision:0}
-      }
+      plugins:{legend:{display:false}},
+      scales:{y:{beginAtZero:true,precision:0}}
     }
   });
 }
@@ -158,57 +152,71 @@ function saveState(){ localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); }
 
 function showQuestion(idx){
   qIndex = idx;
-  qIndexEl.textContent = idx + 1;
-  questionTitle.textContent = QUESTIONS[idx] || '题目缺失';
+  qIndexEl.textContent = idx+1;
+  questionTitle.textContent = QUESTIONS[idx]||'题目缺失';
   optionsDiv.innerHTML = '';
+
   const voteRef = db.ref(`votes/${idx}`);
   voteRef.off();
-  voteRef.on('value', snapshot => {
-    const counts = snapshot.val() || OPTIONS.map(() => 0);
-    state.votes[idx] = counts;
+  voteRef.on('value', snapshot=>{
+    const counts = snapshot.val() || OPTIONS.map(()=>0);
+    state.votes[idx]=counts;
     saveState();
-    optionsDiv.innerHTML = '';
-    counts.forEach((c, i) => {
+
+    optionsDiv.innerHTML='';
+    counts.forEach((c,i)=>{
       const btn = document.createElement('div');
-      btn.className = 'option';
-      btn.dataset.idx = i;
-      btn.innerHTML = `<div style="font-weight:600">${OPTIONS[i]}</div><div class="small">点击投票</div>`;
+      btn.className='option';
+      btn.dataset.idx=i;
+      btn.innerHTML=`<div style="font-weight:600">${OPTIONS[i]}</div><div class="small">点击投票</div>`;
       if(votedQuestions[idx]){
-        btn.style.opacity = 0.6;
-        btn.style.pointerEvents = 'none';
-        btn.querySelector('.small').textContent = '已投票';
-      } else {
-        btn.addEventListener('click', () => { submitVote(i); });
+        btn.style.opacity=0.6;
+        btn.style.pointerEvents='none';
+        btn.querySelector('.small').textContent='已投票';
+      }else{
+        btn.addEventListener('click',()=>{ submitVote(i); });
       }
       optionsDiv.appendChild(btn);
     });
 
-    if (votedQuestions[idx]) {
-      document.getElementById('chart').style.display = 'block';
-      summary.style.display = 'block';
-    } else {
-      document.getElementById('chart').style.display = 'none';
-      summary.style.display = 'none';
+    const chartCanvas = document.getElementById('chart');
+    const statsDiv = document.querySelector('.stats');
+    if(votedQuestions[idx]){
+      chartCanvas.style.display='block';
+      summary.style.display='block';
+    }else{
+      chartCanvas.style.display='none';
+      summary.style.display='none';
     }
 
-    renderChart(counts);
-    const total = counts.reduce((a, b) => a + b, 0);
-    summary.textContent = `总票数：${total}（${counts.map((c,i)=>OPTIONS[i]+':'+c).join(' ／ ')}）`;
+    Promise.all(OPTION_IMAGES.map(src=>{
+      return new Promise(resolve=>{
+        const img = new Image();
+        img.crossOrigin="anonymous";
+        img.src=src;
+        img.onload=()=>resolve(img);
+      });
+    })).then(imgElements=>{
+      renderChart(counts,imgElements);
+      const total = counts.reduce((a,b)=>a+b,0);
+      summary.textContent=`总票数：${total}（${counts.map((c,i)=>OPTIONS[i]+':'+c).join(' ／ ')}）`;
+    });
   });
 }
 
 function submitVote(optionIdx){
   if(votedQuestions[qIndex]){ alert('每题每人只能投一次'); return; }
-  state.votes[qIndex][optionIdx] += 1;
+  state.votes[qIndex][optionIdx]+=1;
   saveState();
   const votePath = `votes/${qIndex}/${optionIdx}`;
-  db.ref(votePath).transaction(current => (current || 0) + 1);
-  votedQuestions[qIndex] = true;
+  db.ref(votePath).transaction(current=>(current||0)+1);
+  votedQuestions[qIndex]=true;
   saveVotedQuestions();
-  document.getElementById('chart').style.display = 'block';
-  summary.style.display = 'block';
+  document.getElementById('chart').style.display='block';
+  summary.style.display='block';
 }
 
+// Buttons
 document.getElementById('nextBtn').addEventListener('click',()=>{ if(qIndex<QUESTIONS.length-1) qIndex++; showQuestion(qIndex); });
 document.getElementById('prevBtn').addEventListener('click',()=>{ if(qIndex>0) qIndex--; showQuestion(qIndex); });
 document.getElementById('resetQuestion').addEventListener('click',()=>{ 
@@ -225,38 +233,34 @@ document.getElementById('clearAll').addEventListener('click',()=>{
   if(confirm('确定清空全部数据？')){ 
     state=makeEmptyState(); 
     saveState(); 
-    QUESTIONS.forEach((_, idx) => db.ref(`votes/${idx}`).set(OPTIONS.map(()=>0)));
-    votedQuestions = {}; 
+    QUESTIONS.forEach((_,idx)=>db.ref(`votes/${idx}`).set(OPTIONS.map(()=>0)));
+    votedQuestions={}; 
     saveVotedQuestions();
     showQuestion(0); 
   } 
 });
-document.getElementById('exportBtn').addEventListener('click', () => {
-  dataBox.value = JSON.stringify(state);
+
+// 导出/导入
+document.getElementById('exportBtn').addEventListener('click',()=>{
+  dataBox.value=JSON.stringify(state);
   dataBox.select();
-  try { document.execCommand('copy'); alert('已复制到剪贴板，可发给其他人同步'); } 
-  catch (e) { alert('请手动复制右方文本'); }
+  try{ document.execCommand('copy'); alert('已复制到剪贴板'); } catch(e){ alert('请手动复制文本'); }
 });
-document.getElementById('importBtn').addEventListener('click', () => {
-  const raw = dataBox.value.trim();
-  if (!raw) { alert('请先粘贴 JSON 数据'); return; }
-  try {
-    const obj = JSON.parse(raw);
-    if (!obj.votes || !Array.isArray(obj.votes) || obj.votes.length !== QUESTIONS.length) throw '格式错误';
-    state = obj; 
-    saveState(); 
-    showQuestion(qIndex); 
-    alert('已导入数据'); 
-  } catch(e) { alert('导入失败，请检查 JSON 格式'); }
+document.getElementById('importBtn').addEventListener('click',()=>{
+  const raw=dataBox.value.trim();
+  if(!raw){ alert('请先粘贴 JSON 数据'); return; }
+  try{
+    const obj=JSON.parse(raw);
+    if(!obj.votes||!Array.isArray(obj.votes)||obj.votes.length!==QUESTIONS.length) throw '格式错误';
+    state=obj; saveState(); showQuestion(qIndex); alert('已导入数据');
+  }catch(e){ alert('导入失败，请检查 JSON 格式'); }
 });
-document.getElementById('editBtn').addEventListener('click',()=>{ 
-  editPanel.style.display=editPanel.style.display==='none'?'block':'none'; 
-  editQuestions.value=QUESTIONS.join('\n'); 
-  editOptions.value=OPTIONS.join('\n'); 
-});
+
+// 编辑
+document.getElementById('editBtn').addEventListener('click',()=>{ editPanel.style.display=editPanel.style.display==='none'?'block':'none'; editQuestions.value=QUESTIONS.join('\n'); editOptions.value=OPTIONS.join('\n'); });
 document.getElementById('saveEditBtn').addEventListener('click',()=>{
-  const qText = editQuestions.value.split('\n').map(l=>l.trim()).filter(Boolean);
-  const oText = editOptions.value.split('\n').map(l=>l.trim()).filter(Boolean);
+  const qText=editQuestions.value.split('\n').map(l=>l.trim()).filter(Boolean);
+  const oText=editOptions.value.split('\n').map(l=>l.trim()).filter(Boolean);
   if(qText.length<1||oText.length<1){ alert('题目和选项都不能为空'); return; }
   QUESTIONS=qText; OPTIONS=oText;
   state.votes=QUESTIONS.map((q,i)=>state.votes[i]||OPTIONS.map(()=>0));
@@ -266,20 +270,27 @@ document.getElementById('saveEditBtn').addEventListener('click',()=>{
   showQuestion(0);
 });
 
-document.getElementById('unlockVotes').addEventListener('click', () => {
-  if (!confirm('统计所有题目总得票？')) return;
-  const totalCounts = OPTIONS.map(() => 0);
-  state.votes.forEach(qVotes => qVotes.forEach((c, i) => totalCounts[i] += c));
-  const totalText = totalCounts.map((c, i) => `${OPTIONS[i]}：${c}`).join(' ／ ');
+// 🍎按钮总票数
+document.getElementById('unlockVotes').addEventListener('click',()=>{
+  if(!confirm('统计所有题目总得票？')) return;
+  const totalCounts=OPTIONS.map(()=>0);
+  state.votes.forEach(qVotes=>{ qVotes.forEach((c,i)=>{ totalCounts[i]+=c; }); });
+  const totalText=totalCounts.map((c,i)=>`${OPTIONS[i]}：${c}`).join(' ／ ');
   alert(`🍎 全部题目总得票：\n${totalText}`);
-  renderChart(totalCounts);
-  summary.textContent = `🍎 全部题目加总结果（${totalText}）`;
-  questionTitle.textContent = '🍎 全部题目总得票统计';
+  Promise.all(OPTION_IMAGES.map(src=>{
+    return new Promise(resolve=>{
+      const img=new Image(); img.crossOrigin="anonymous"; img.src=src; img.onload=()=>resolve(img);
+    });
+  })).then(imgElements=>{
+    renderChart(totalCounts,imgElements);
+    summary.textContent=`🍎 全部题目加总结果（${totalText}）`;
+    questionTitle.textContent='🍎 全部题目总得票统计';
+  });
 });
 
 showQuestion(0);
-document.getElementById('chart').style.display = 'none';
-summary.style.display = 'none';
+document.getElementById('chart').style.display='none';
+summary.style.display='none';
 </script>
 </body>
 </html>

@@ -68,6 +68,15 @@ footer{margin-top:14px;font-size:12px;color:#777;}
 </div>
 
 <script>
+  
+  const OPTION_IMAGES = [
+  'Fumika.jpg',
+  '小美.jpg',
+  '盼盼.jpg',
+  'Selina.jpg',
+  'Zoe.jpg'
+];
+
 // ========== 可编辑题目与选项 ==========
 let QUESTIONS = [
 '谁最爱在公共场合做莫名其妙的事','谁最可能在出事的时候冲在前面','谁最可能先有小孩','谁最可能酒后联系前任','谁最容易被PUA','谁最有可能先结婚','谁最喜欢年下','谁最爱看美女/帅哥','谁最爱忘事','谁最可能一夜情','谁最容易心动','谁最像M','谁最容易遇上渣女/男','谁最有上进心','谁情绪最稳定','谁最有可能吃回头草','谁脾气最大','谁最可能为爱放弃事业','谁最八卦','谁最恋爱脑','谁分手后会最快走出来','谁最有桃花'
@@ -121,9 +130,42 @@ const ctx = document.getElementById('chart').getContext('2d');
 let chart;
 function renderChart(counts){
   const labels = OPTIONS.slice();
+  const imgElements = OPTION_IMAGES.map(src=>{
+    const img = new Image();
+    img.src = src;
+    return img;
+  });
+
   if(chart) chart.destroy();
-  chart = new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'票数',data:counts}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,precision:0}}}});
+  chart = new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{
+        label:'票数',
+        data:counts,
+        backgroundColor: counts.map((_,i)=>({
+          pattern: {
+            image: imgElements[i],
+            x:0,
+            y:0,
+            width:50,
+            height:50
+          }
+        }))
+      }]
+    },
+    options:{
+      plugins:{
+        legend:{display:false}
+      },
+      scales:{
+        y:{beginAtZero:true,precision:0}
+      }
+    }
+  });
 }
+
 
 // 状态
 function makeEmptyState(){ return {votes:QUESTIONS.map(()=>OPTIONS.map(()=>0)), currentQuestion:0}; }
